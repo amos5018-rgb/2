@@ -164,14 +164,22 @@ function populateFilters() {
 
 function matchesSearch(student, term) {
   if (!term) return true;
+
+  const normalizedPhone = toTel(student.studentPhone || "");
+  const numberWithSuffix = student.number ? `${student.number}번` : "";
+  const classAndNumber = student.className && student.number ? `${student.className} ${student.number}번` : "";
+
   const haystack = [
     student.name,
     student.className,
     student.number,
+    numberWithSuffix,
+    classAndNumber,
     student.note,
     student.guardian1Name,
     student.guardian2Name,
     student.studentPhone,
+    normalizedPhone,
     ...(student.tags || [])
   ]
     .join(" ")
