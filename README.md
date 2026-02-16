@@ -48,6 +48,10 @@
    - CSV 업로드 시 전체 데이터 교체
    - 필수 헤더 검증
 
+7. **브라우저 자동 저장(영구 보존)**
+   - 불러온 CSV와 모달에서 수정한 메모/태그를 `localStorage`에 자동 저장
+   - 웹앱을 종료했다 다시 열어도 같은 브라우저/기기에서는 데이터 유지
+
 ## CSV 형식
 
 필수 헤더:
@@ -90,6 +94,7 @@ name,className,number,studentPhone,guardian1Name,guardian1Phone,guardian2Name,gu
 ```bash
 python3 -m http.server 8000
 ```
+> 참고: 저장 데이터는 브라우저 `localStorage`에 저장됩니다. 브라우저 캐시/사이트 데이터 삭제 시 함께 사라질 수 있습니다.
 
 ## 개인정보 유출 방지 안내
 

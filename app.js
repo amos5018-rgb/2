@@ -55,6 +55,8 @@ const state = {
   filtered: [...seedData]
 };
 
+const STORAGE_KEY = "class-contact-students-v1";
+
 const searchInput = document.getElementById("searchInput");
 const classFilter = document.getElementById("classFilter");
 const tagFilter = document.getElementById("tagFilter");
@@ -116,6 +118,27 @@ function normalizeStudent(raw) {
     note: raw.note || "",
     tags: normalizeTags(raw.tags)
   };
+}
+
+function loadStudentsFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.map(normalizeStudent);
+  } catch (error) {
+    console.warn("저장된 데이터를 불러오지 못했습니다.", error);
+    return null;
+  }
+}
+
+function saveStudentsToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.students));
+  } catch (error) {
+    console.warn("데이터를 저장하지 못했습니다.", error);
+  }
 }
 
 function populateFilters() {
@@ -262,6 +285,7 @@ function bindTagEditor(student) {
 
   function rerenderTagSection() {
     tagContainer.innerHTML = renderEditableTags(student);
+    saveStudentsToStorage();
     populateFilters();
     applyFilters();
   }
@@ -329,6 +353,7 @@ function showDetail(student) {
   const memoInput = detailContent.querySelector("#detailMemo");
   memoInput?.addEventListener("input", (event) => {
     student.note = event.target.value;
+    saveStudentsToStorage();
     applyFilters();
   });
 
@@ -403,6 +428,7 @@ csvInput.addEventListener("change", async (event) => {
     const text = await file.text();
     const rows = parseCsv(text);
     state.students = rows;
+    saveStudentsToStorage();
     populateFilters();
     applyFilters();
     setCsvError("");
@@ -413,7 +439,8 @@ csvInput.addEventListener("change", async (event) => {
   }
 });
 
-state.students = state.students.map(normalizeStudent);
+const storedStudents = loadStudentsFromStorage();
+state.students = (storedStudents && storedStudents.length ? storedStudents : seedData).map(normalizeStudent);
 state.filtered = [...state.students];
 populateFilters();
 renderCards();
