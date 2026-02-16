@@ -1,0 +1,208 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --text: #1f2a37;
+  --muted: #5f6f84;
+  --accent: #1663ff;
+  --accent-weak: #dce7ff;
+  --border: #d7dfeb;
+  --danger: #d63b3b;
+  font-family: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-header {
+  padding: 1.25rem 1rem;
+  background: linear-gradient(135deg, #112958, #194193);
+  color: #fff;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.app-header p {
+  margin: 0.4rem 0 0;
+  opacity: 0.85;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+input,
+select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.section-title {
+  margin: 1rem 0 0.7rem;
+  font-size: 1.1rem;
+}
+
+.card-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.8rem;
+}
+
+.student-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.9rem;
+  box-shadow: 0 2px 12px rgba(17, 41, 88, 0.06);
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.student-card:hover,
+.student-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(17, 41, 88, 0.12);
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.student-name {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.student-class-number {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.primary-contact {
+  margin: 0.7rem 0;
+  font-size: 0.92rem;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.button {
+  display: inline-block;
+  border: 0;
+  border-radius: 9px;
+  padding: 0.55rem 0.7rem;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.call-button {
+  background: var(--accent);
+  color: #fff;
+}
+
+.sms-button {
+  background: var(--accent-weak);
+  color: #163159;
+}
+
+.button.secondary {
+  background: #eef2fa;
+  color: #26364c;
+}
+
+.detail-modal {
+  width: min(92vw, 560px);
+  border: 0;
+  border-radius: 16px;
+  padding: 0;
+}
+
+.detail-modal::backdrop {
+  background: rgba(14, 24, 39, 0.5);
+}
+
+#detailContent {
+  padding: 1rem;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tag {
+  background: #e8f1ff;
+  color: #0f3369;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+
+.modal-footer {
+  padding: 0.75rem 1rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.empty {
+  background: #fff;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+}
