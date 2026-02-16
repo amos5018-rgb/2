@@ -246,6 +246,53 @@ select:focus {
   gap: 0.35rem;
 }
 
+
+.button.small {
+  min-height: 44px;
+  font-size: 0.86rem;
+  padding: 0.5rem 0.7rem;
+}
+
+.tag-editor {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.editable-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.editable-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #e8f1ff;
+  color: #0f3369;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.3rem 0.25rem 0.55rem;
+}
+
+.tag-remove {
+  border: 0;
+  background: #d4e5ff;
+  color: #113b75;
+  border-radius: 999px;
+  width: 22px;
+  height: 22px;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tag-create-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+}
+
 .memo-input {
   width: 100%;
   min-height: 132px;
