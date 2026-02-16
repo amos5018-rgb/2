@@ -59,6 +59,9 @@ function toTel(phone = "") {
 }
 
 function populateFilters() {
+  const prevClass = classFilter.value;
+  const prevGroup = groupFilter.value;
+
   const classes = [...new Set(state.students.map((s) => s.className).filter(Boolean))].sort();
   const groups = [...new Set(state.students.map((s) => s.group).filter(Boolean))].sort();
 
@@ -69,17 +72,14 @@ function populateFilters() {
   groupFilter.innerHTML = `<option value="all">전체 그룹</option>${groups
     .map((g) => `<option value="${g}">${g}</option>`)
     .join("")}`;
+
+  classFilter.value = classes.includes(prevClass) ? prevClass : "all";
+  groupFilter.value = groups.includes(prevGroup) ? prevGroup : "all";
 }
 
 function matchesSearch(student, term) {
   if (!term) return true;
-  const haystack = [
-    student.name,
-    student.className,
-    student.number,
-    student.note,
-    student.guardianName
-  ]
+  const haystack = [student.name, student.className, student.number, student.note, student.guardianName]
     .join(" ")
     .toLowerCase();
   return haystack.includes(term);
@@ -150,18 +150,23 @@ function showDetail(student) {
       <div><strong>메모</strong>: ${student.note || "-"}</div>
       <div><strong>그룹</strong>: ${student.group || "-"}</div>
       <div>
-        <strong>태그</strong>:
+        <strong>태그</strong>
         <div class="tag-list">${(student.tags || []).map((tag) => `<span class="tag">${tag}</span>`).join("") || "-"}</div>
       </div>
       <div>
-        <strong>추가 연락처</strong>:
+        <strong>추가 연락처</strong>
         <ul>
           ${(student.extraContacts || []).map((c) => `<li>${c}</li>`).join("") || "<li>-</li>"}
         </ul>
       </div>
     </div>
   `;
-  detailModal.showModal();
+
+  if (typeof detailModal.showModal === "function") {
+    detailModal.showModal();
+  } else {
+    detailModal.setAttribute("open", "");
+  }
 }
 
 function parseCsv(text) {
