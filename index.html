@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>학급 연락처 관리</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>학급 연락처 관리</h1>
+      <p>iPhone 16 Pro 최적화 · 담임 교사용 연락처 대시보드</p>
+    </header>
+
+    <main class="container">
+      <section class="controls" aria-label="검색 및 필터">
+        <label class="search-field">
+          <span class="label">검색 (이름/번호/메모)</span>
+          <input
+            id="searchInput"
+            type="search"
+            inputmode="search"
+            placeholder="예: 김민준, 2반 13번, 상담"
+            autocomplete="off"
+          />
+        </label>
+
+        <div class="filter-grid">
+          <label>
+            <span class="label">반 필터</span>
+            <select id="classFilter">
+              <option value="all">전체 반</option>
+            </select>
+          </label>
+
+          <label>
+            <span class="label">그룹 필터</span>
+            <select id="groupFilter">
+              <option value="all">전체 그룹</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="csv-upload">
+          <span class="label">CSV 가져오기 (헤더 포함)</span>
+          <input id="csvInput" type="file" accept=".csv,text/csv" />
+        </label>
+      </section>
+
+      <section>
+        <h2 class="section-title">학생 목록</h2>
+        <div id="cardList" class="card-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <dialog id="detailModal" class="detail-modal">
+      <article id="detailContent"></article>
+      <form method="dialog" class="modal-footer">
+        <button type="submit" class="button secondary close-button">닫기</button>
+      </form>
+    </dialog>
+
+    <template id="cardTemplate">
+      <article class="student-card" tabindex="0" role="button">
+        <div class="card-head">
+          <h3 class="student-name"></h3>
+          <p class="student-class-number"></p>
+        </div>
+        <p class="primary-contact"></p>
+        <div class="quick-actions">
+          <a class="button call-button" target="_self" aria-label="전화 걸기">전화</a>
+          <a class="button sms-button" target="_self" aria-label="문자 보내기">문자</a>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
