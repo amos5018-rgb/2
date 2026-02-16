@@ -234,7 +234,6 @@ function showDetail(student) {
     <div class="detail-grid">
       <div><strong>학생 전화</strong>: ${student.studentPhone || "-"}</div>
       <div><strong>주소</strong>: ${student.address || "-"}</div>
-      <div><strong>메모</strong>: ${student.note || "-"}</div>
       <div><strong>그룹</strong>: ${student.group || "-"}</div>
       <div>
         <strong>보호자 연락</strong>
@@ -247,14 +246,18 @@ function showDetail(student) {
         <strong>태그</strong>
         <div class="tag-list">${(student.tags || []).map((tag) => `<span class="tag">${tag}</span>`).join("") || "-"}</div>
       </div>
-      <div>
-        <strong>추가 연락처</strong>
-        <ul>
-          ${(student.extraContacts || []).map((c) => `<li>${c}</li>`).join("") || "<li>-</li>"}
-        </ul>
-      </div>
     </div>
+
+    <section class="memo-editor">
+      <label for="detailMemo"><strong>메모</strong></label>
+      <textarea id="detailMemo" class="memo-input" rows="5" placeholder="자유롭게 메모를 입력하세요.">${student.note || ""}</textarea>
+    </section>
   `;
+
+  const memoInput = detailContent.querySelector("#detailMemo");
+  memoInput?.addEventListener("input", (event) => {
+    student.note = event.target.value;
+  });
 
   if (typeof detailModal.showModal === "function") {
     detailModal.showModal();

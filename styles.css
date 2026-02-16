@@ -239,6 +239,29 @@ select:focus {
   font-size: 0.92rem;
 }
 
+
+.memo-editor {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.memo-input {
+  width: 100%;
+  min-height: 132px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem;
+  font-size: 0.92rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.memo-input:focus {
+  outline: 2px solid #b9d0ff;
+  border-color: #8cb2ff;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;

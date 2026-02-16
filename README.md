@@ -30,9 +30,9 @@
 3. **상세 패널(모달)**
    - 학생 전화
    - 주소
-   - 메모
    - 태그
-   - 추가 연락처
+   - 보호자 1/2 전화·문자 버튼
+   - 최하단 메모 입력 영역(자유 텍스트)
 
 4. **검색 및 필터**
    - 상단 검색: 이름/번호/메모 기준
@@ -75,6 +75,7 @@
 name,className,number,studentPhone,guardian1Name,guardian1Phone,guardian2Name,guardian2Phone,address,note,group,tags,extraContacts
 김민준,2반,13,010-2233-1122,김지연,010-1234-5678,김정우,010-9988-7766,서울시 강동구...,방과후 16시 이후 연락,상담,방과후|상담필요,학원:02-123-4567
 ```
+샘플 파일: `sample_contacts.csv`를 그대로 업로드해 동작을 바로 확인할 수 있습니다.
 
 ## 실행 방법
 
