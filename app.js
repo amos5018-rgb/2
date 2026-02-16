@@ -5,6 +5,30 @@ function makeId() {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+const STORAGE_KEY = "class-contact-students-v1";
+const EXPORT_HEADERS = [
+  "name",
+  "className",
+  "number",
+  "studentPhone",
+  "guardian1Name",
+  "guardian1Phone",
+  "guardian2Name",
+  "guardian2Phone",
+  "address",
+  "note",
+  "tags"
+];
+
+const SEARCH_SYNONYMS = {
+  학부모: ["보호자", "부모님"],
+  보호자: ["학부모", "부모님"],
+  상담: ["상담필요", "면담"],
+  결석: ["출결", "지각"],
+  통학: ["등하교"],
+  건강: ["알레르기", "보건"]
+};
+
 const seedData = [
   {
     id: makeId(),
@@ -52,19 +76,28 @@ const seedData = [
 
 const state = {
   students: [...seedData],
-  filtered: [...seedData]
+  filtered: [...seedData],
+  lastDeleted: null,
+  undoTimer: null
 };
-
-const STORAGE_KEY = "class-contact-students-v1";
 
 const searchInput = document.getElementById("searchInput");
 const classFilter = document.getElementById("classFilter");
 const tagFilter = document.getElementById("tagFilter");
 const csvInput = document.getElementById("csvInput");
+const exportCsvButton = document.getElementById("exportCsvButton");
+const openAddStudentButton = document.getElementById("openAddStudentButton");
+const cancelAddStudentButton = document.getElementById("cancelAddStudentButton");
+const addStudentModal = document.getElementById("addStudentModal");
+const addStudentForm = document.getElementById("addStudentForm");
+const addStudentError = document.getElementById("addStudentError");
 const cardList = document.getElementById("cardList");
 const detailModal = document.getElementById("detailModal");
 const detailContent = document.getElementById("detailContent");
 const cardTemplate = document.getElementById("cardTemplate");
+const undoBar = document.getElementById("undoBar");
+const undoMessage = document.getElementById("undoMessage");
+const undoDeleteButton = document.getElementById("undoDeleteButton");
 
 function escapeHtml(text = "") {
   return String(text)
@@ -75,29 +108,30 @@ function escapeHtml(text = "") {
     .replace(/'/g, "&#39;");
 }
 
-function toTel(phone = "") {
-  return phone.replace(/[^\d+]/g, "");
+function escapeRegExp(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function setActionLink(button, scheme, phone) {
-  const sanitizedPhone = toTel(phone);
-  if (!sanitizedPhone) {
-    button.removeAttribute("href");
-    button.setAttribute("aria-disabled", "true");
-    button.classList.add("disabled");
-    return;
-  }
+function canonicalTag(tag) {
+  return String(tag || "").replace(/\s+/g, " ").trim();
+}
 
-  button.href = `${scheme}:${sanitizedPhone}`;
-  button.classList.remove("disabled");
-  button.removeAttribute("aria-disabled");
+function tagKey(tag) {
+  return canonicalTag(tag).toLowerCase();
 }
 
 function normalizeTags(tagsValue) {
-  if (Array.isArray(tagsValue)) {
-    return [...new Set(tagsValue.map((tag) => String(tag).trim()).filter(Boolean))];
-  }
-  return [];
+  if (!Array.isArray(tagsValue)) return [];
+
+  const unique = new Map();
+  tagsValue.forEach((tag) => {
+    const normalized = canonicalTag(tag);
+    const key = tagKey(normalized);
+    if (!normalized || unique.has(key)) return;
+    unique.set(key, normalized);
+  });
+
+  return [...unique.values()];
 }
 
 function normalizeStudent(raw) {
@@ -106,16 +140,16 @@ function normalizeStudent(raw) {
 
   return {
     id: raw.id || makeId(),
-    name: raw.name || "",
-    className: raw.className || "",
-    number: raw.number || "",
-    studentPhone: raw.studentPhone || raw.studentPhoneNumber || raw.student_phone || raw.primaryPhone || "",
-    guardian1Name,
-    guardian1Phone,
-    guardian2Name: raw.guardian2Name || "",
-    guardian2Phone: raw.guardian2Phone || "",
-    address: raw.address || "",
-    note: raw.note || "",
+    name: String(raw.name || "").trim(),
+    className: String(raw.className || "").trim(),
+    number: String(raw.number || "").trim(),
+    studentPhone: String(raw.studentPhone || raw.studentPhoneNumber || raw.student_phone || raw.primaryPhone || "").trim(),
+    guardian1Name: String(guardian1Name).trim(),
+    guardian1Phone: String(guardian1Phone).trim(),
+    guardian2Name: String(raw.guardian2Name || "").trim(),
+    guardian2Phone: String(raw.guardian2Phone || "").trim(),
+    address: String(raw.address || "").trim(),
+    note: String(raw.note || ""),
     tags: normalizeTags(raw.tags)
   };
 }
@@ -141,35 +175,73 @@ function saveStudentsToStorage() {
   }
 }
 
-function populateFilters() {
-  const prevClass = classFilter.value;
-  const prevTag = tagFilter.value;
-
-  const classes = [...new Set(state.students.map((s) => s.className).filter(Boolean))].sort();
-  const tags = [...new Set(state.students.flatMap((s) => s.tags || []).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b, "ko")
-  );
-
-  classFilter.innerHTML = `<option value="all">전체 반</option>${classes
-    .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
-    .join("")}`;
-
-  tagFilter.innerHTML = `<option value="all">전체 태그</option>${tags
-    .map((tag) => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`)
-    .join("")}`;
-
-  classFilter.value = classes.includes(prevClass) ? prevClass : "all";
-  tagFilter.value = tags.includes(prevTag) ? prevTag : "all";
+function toTel(phone = "") {
+  return phone.replace(/[^\d+]/g, "");
 }
 
-function matchesSearch(student, term) {
-  if (!term) return true;
+function setActionLink(button, scheme, phone) {
+  const sanitizedPhone = toTel(phone);
+  if (!sanitizedPhone) {
+    button.removeAttribute("href");
+    button.setAttribute("aria-disabled", "true");
+    button.classList.add("disabled");
+    return;
+  }
 
-  const normalizedPhone = toTel(student.studentPhone || "");
+  button.href = `${scheme}:${sanitizedPhone}`;
+  button.classList.remove("disabled");
+  button.removeAttribute("aria-disabled");
+}
+
+function isChoseongQuery(text = "") {
+  return /^[ㄱ-ㅎ]+$/.test(text);
+}
+
+function toChoseong(text = "") {
+  const CHO = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+  return Array.from(String(text))
+    .map((ch) => {
+      const code = ch.charCodeAt(0);
+      if (code >= 0xac00 && code <= 0xd7a3) {
+        return CHO[Math.floor((code - 0xac00) / 588)];
+      }
+      return ch;
+    })
+    .join("");
+}
+
+function expandSearchToken(rawToken) {
+  const base = String(rawToken || "").trim().toLowerCase();
+  if (!base) return [];
+
+  const variants = new Set([base]);
+  Object.entries(SEARCH_SYNONYMS).forEach(([key, aliases]) => {
+    const keyLower = key.toLowerCase();
+    const aliasLower = aliases.map((v) => v.toLowerCase());
+    if (base === keyLower || aliasLower.includes(base)) {
+      variants.add(keyLower);
+      aliasLower.forEach((v) => variants.add(v));
+    }
+  });
+
+  return [...variants];
+}
+
+function parseSearchTokens(text) {
+  return text
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => ({ token, variants: expandSearchToken(token) }));
+}
+
+function matchesSearch(student, tokens) {
+  if (!tokens.length) return true;
+
   const numberWithSuffix = student.number ? `${student.number}번` : "";
   const classAndNumber = student.className && student.number ? `${student.className} ${student.number}번` : "";
-
-  const haystack = [
+  const baseHaystack = [
     student.name,
     student.className,
     student.number,
@@ -179,29 +251,90 @@ function matchesSearch(student, term) {
     student.guardian1Name,
     student.guardian2Name,
     student.studentPhone,
-    normalizedPhone,
+    toTel(student.studentPhone || ""),
     ...(student.tags || [])
   ]
     .join(" ")
     .toLowerCase();
-  return haystack.includes(term);
+
+  const choseongHaystack = toChoseong(baseHaystack);
+
+  return tokens.every(({ variants }) => {
+    return variants.some((variant) => {
+      if (!variant) return false;
+      return isChoseongQuery(variant) ? choseongHaystack.includes(variant) : baseHaystack.includes(variant);
+    });
+  });
+}
+
+function highlightText(value, tokens) {
+  const raw = String(value || "");
+  if (!tokens.length || !raw) return escapeHtml(raw);
+
+  let highlighted = escapeHtml(raw);
+  tokens.forEach(({ variants }) => {
+    variants.forEach((variant) => {
+      if (!variant || isChoseongQuery(variant)) return;
+      const regex = new RegExp(`(${escapeRegExp(variant)})`, "gi");
+      highlighted = highlighted.replace(regex, '<mark class="search-highlight">$1</mark>');
+    });
+  });
+  return highlighted;
+}
+
+function refreshAndPersist() {
+  saveStudentsToStorage();
+  populateFilters();
+  applyFilters();
+}
+
+function populateFilters() {
+  const prevClass = classFilter.value;
+  const prevTag = tagFilter.value;
+
+  const classes = [...new Set(state.students.map((s) => s.className).filter(Boolean))].sort();
+  const tagStats = new Map();
+  state.students.forEach((student) => {
+    normalizeTags(student.tags).forEach((tag) => {
+      const key = tagKey(tag);
+      const current = tagStats.get(key);
+      if (!current) {
+        tagStats.set(key, { label: tag, count: 1 });
+      } else {
+        current.count += 1;
+      }
+    });
+  });
+
+  const tags = [...tagStats.values()].sort((a, b) => a.label.localeCompare(b.label, "ko"));
+
+  classFilter.innerHTML = `<option value="all">전체 반</option>${classes
+    .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+    .join("")}`;
+
+  tagFilter.innerHTML = `<option value="all">전체 태그</option>${tags
+    .map((tag) => `<option value="${escapeHtml(tag.label)}">${escapeHtml(tag.label)} (${tag.count})</option>`)
+    .join("")}`;
+
+  classFilter.value = classes.includes(prevClass) ? prevClass : "all";
+  tagFilter.value = tags.map((tag) => tag.label).includes(prevTag) ? prevTag : "all";
 }
 
 function applyFilters() {
-  const term = searchInput.value.trim().toLowerCase();
+  const tokens = parseSearchTokens(searchInput.value);
   const selectedClass = classFilter.value;
   const selectedTag = tagFilter.value;
 
   state.filtered = state.students.filter((student) => {
     const classOk = selectedClass === "all" || student.className === selectedClass;
-    const tagOk = selectedTag === "all" || (student.tags || []).includes(selectedTag);
-    return classOk && tagOk && matchesSearch(student, term);
+    const tagOk = selectedTag === "all" || (student.tags || []).some((tag) => tagKey(tag) === tagKey(selectedTag));
+    return classOk && tagOk && matchesSearch(student, tokens);
   });
 
-  renderCards();
+  renderCards(tokens);
 }
 
-function renderCards() {
+function renderCards(tokens = parseSearchTokens(searchInput.value)) {
   cardList.innerHTML = "";
 
   if (state.filtered.length === 0) {
@@ -213,9 +346,9 @@ function renderCards() {
 
   state.filtered.forEach((student) => {
     const card = cardTemplate.content.firstElementChild.cloneNode(true);
-    card.querySelector(".student-name").textContent = student.name;
-    card.querySelector(".student-class-number").textContent = `${student.className} ${student.number}번`;
-    card.querySelector(".primary-contact").textContent = `연락처: ${student.studentPhone || "-"}`;
+    card.querySelector(".student-name").innerHTML = highlightText(student.name, tokens);
+    card.querySelector(".student-class-number").innerHTML = highlightText(`${student.className} ${student.number}번`, tokens);
+    card.querySelector(".primary-contact").innerHTML = highlightText(`연락처: ${student.studentPhone || "-"}`, tokens);
 
     const callButton = card.querySelector(".call-button");
     const smsButton = card.querySelector(".sms-button");
@@ -269,61 +402,167 @@ function guardianActionRow(label, phone) {
 }
 
 function renderEditableTags(student) {
-  const tags = student.tags || [];
-  if (!tags.length) {
+  if (!student.tags.length) {
     return `<p class="guardian-empty">등록된 태그가 없습니다.</p>`;
   }
 
-  return tags
-    .map(
-      (tag) => `
-      <span class="editable-tag">
-        <span>${escapeHtml(tag)}</span>
-        <button type="button" class="tag-remove" data-tag="${escapeHtml(tag)}" aria-label="${escapeHtml(tag)} 삭제">×</button>
-      </span>
-    `
-    )
+  return student.tags
+    .map((tag) => {
+      const token = encodeURIComponent(tag);
+      return `
+        <span class="editable-tag">
+          <span>${escapeHtml(tag)}</span>
+          <button type="button" class="tag-rename" data-tag="${token}" aria-label="${escapeHtml(tag)} 이름 변경">✎</button>
+          <button type="button" class="tag-remove" data-tag="${token}" aria-label="${escapeHtml(tag)} 삭제">×</button>
+        </span>
+      `;
+    })
     .join("");
 }
 
-function bindTagEditor(student) {
-  const addInput = detailContent.querySelector("#newTagInput");
-  const addButton = detailContent.querySelector("#addTagButton");
-  const tagContainer = detailContent.querySelector("#editableTagList");
+function renameTagAcrossStudents(currentTag, nextTag) {
+  state.students = state.students.map((student) => {
+    const tags = (student.tags || []).map((tag) => (tagKey(tag) === tagKey(currentTag) ? nextTag : tag));
+    return { ...student, tags: normalizeTags(tags) };
+  });
 
-  function rerenderTagSection() {
-    tagContainer.innerHTML = renderEditableTags(student);
-    saveStudentsToStorage();
-    populateFilters();
-    applyFilters();
+  refreshAndPersist();
+}
+
+function validateStudentInput(student, currentId = null) {
+  if (!student.name || !student.className || !student.number) {
+    return "이름/반/번호는 필수 입력입니다.";
   }
 
-  addButton?.addEventListener("click", () => {
-    const nextTag = addInput.value.trim();
+  const duplicated = state.students.some((item) => {
+    if (currentId && item.id === currentId) return false;
+    return item.className === student.className && String(item.number) === String(student.number);
+  });
+
+  if (duplicated) {
+    return `이미 ${student.className} ${student.number}번 학생이 등록되어 있습니다.`;
+  }
+
+  const hasAnyPhone = student.studentPhone || student.guardian1Phone || student.guardian2Phone;
+  if (!hasAnyPhone) {
+    return "학생 또는 보호자 전화번호를 최소 1개 이상 입력하세요.";
+  }
+
+  return "";
+}
+
+function upsertStudentInState(updatedStudent) {
+  const index = state.students.findIndex((student) => student.id === updatedStudent.id);
+  if (index >= 0) {
+    state.students[index] = updatedStudent;
+    return;
+  }
+  state.students.push(updatedStudent);
+}
+
+function deleteStudentById(id) {
+  const index = state.students.findIndex((student) => student.id === id);
+  if (index < 0) return;
+
+  const [removed] = state.students.splice(index, 1);
+  state.lastDeleted = { student: removed, index };
+  showUndoBar(`${removed.className} ${removed.number}번 ${removed.name} 학생을 삭제했습니다.`);
+  refreshAndPersist();
+}
+
+function showUndoBar(message) {
+  if (!undoBar || !undoMessage) return;
+  undoMessage.textContent = message;
+  undoBar.hidden = false;
+
+  if (state.undoTimer) {
+    clearTimeout(state.undoTimer);
+  }
+
+  state.undoTimer = setTimeout(() => {
+    undoBar.hidden = true;
+    state.lastDeleted = null;
+    state.undoTimer = null;
+  }, 8000);
+}
+
+function undoDelete() {
+  if (!state.lastDeleted) return;
+
+  const { student, index } = state.lastDeleted;
+  state.students.splice(index, 0, student);
+  state.lastDeleted = null;
+  if (state.undoTimer) {
+    clearTimeout(state.undoTimer);
+    state.undoTimer = null;
+  }
+  if (undoBar) {
+    undoBar.hidden = true;
+  }
+  refreshAndPersist();
+}
+
+function bindTagEditor(student) {
+  const tagList = detailContent.querySelector("#editableTagList");
+  const input = detailContent.querySelector("#newTagInput");
+  const addButton = detailContent.querySelector("#addTagButton");
+
+  if (!tagList || !input || !addButton) return;
+
+  const rerenderTagSection = () => {
+    const refreshedStudent = state.students.find((item) => item.id === student.id);
+    if (!refreshedStudent) return;
+    student = refreshedStudent;
+    tagList.innerHTML = renderEditableTags(student);
+    refreshAndPersist();
+  };
+
+  addButton.addEventListener("click", () => {
+    const nextTag = canonicalTag(input.value);
     if (!nextTag) return;
 
-    if (!student.tags.includes(nextTag)) {
-      student.tags.push(nextTag);
-      student.tags.sort((a, b) => a.localeCompare(b, "ko"));
-      rerenderTagSection();
+    if ((student.tags || []).some((tag) => tagKey(tag) === tagKey(nextTag))) {
+      input.value = "";
+      return;
     }
-    addInput.value = "";
-    addInput.focus();
+
+    student.tags = normalizeTags([...(student.tags || []), nextTag]);
+    input.value = "";
+    rerenderTagSection();
   });
 
-  addInput?.addEventListener("keydown", (event) => {
+  input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      addButton?.click();
+      addButton.click();
     }
   });
 
-  tagContainer?.addEventListener("click", (event) => {
-    const button = event.target.closest(".tag-remove");
-    if (!button) return;
-    const targetTag = button.dataset.tag;
-    student.tags = student.tags.filter((tag) => tag !== targetTag);
-    rerenderTagSection();
+  tagList.addEventListener("click", (event) => {
+    const removeButton = event.target.closest(".tag-remove");
+    if (removeButton) {
+      const targetTag = decodeURIComponent(removeButton.dataset.tag || "");
+      student.tags = student.tags.filter((tag) => tagKey(tag) !== tagKey(targetTag));
+      rerenderTagSection();
+      return;
+    }
+
+    const renameButton = event.target.closest(".tag-rename");
+    if (!renameButton) return;
+
+    const currentTag = decodeURIComponent(renameButton.dataset.tag || "");
+    const renamed = window.prompt("태그 이름 변경", currentTag);
+    if (renamed == null) return;
+
+    const nextTag = canonicalTag(renamed);
+    if (!nextTag || tagKey(nextTag) === tagKey(currentTag)) return;
+
+    renameTagAcrossStudents(currentTag, nextTag);
+    const refreshedStudent = state.students.find((item) => item.id === student.id);
+    if (refreshedStudent) {
+      student = refreshedStudent;
+      tagList.innerHTML = renderEditableTags(student);
+    }
   });
 }
 
@@ -348,21 +587,34 @@ function showDetail(student) {
           <button id="addTagButton" type="button" class="button secondary small">추가</button>
         </div>
       </div>
+      <button id="deleteStudentButton" type="button" class="button danger">학생 삭제</button>
     </div>
 
     <section class="memo-editor">
       <label for="detailMemo"><strong>메모</strong></label>
-      <textarea id="detailMemo" class="memo-input" rows="5" placeholder="자유롭게 메모를 입력하세요.">${escapeHtml(
-        student.note || ""
-      )}</textarea>
+      <textarea id="detailMemo" class="memo-input" rows="5" placeholder="자유롭게 메모를 입력하세요.">${escapeHtml(student.note || "")}</textarea>
     </section>
   `;
 
   const memoInput = detailContent.querySelector("#detailMemo");
   memoInput?.addEventListener("input", (event) => {
-    student.note = event.target.value;
-    saveStudentsToStorage();
-    applyFilters();
+    const target = state.students.find((item) => item.id === student.id);
+    if (!target) return;
+    target.note = event.target.value;
+    refreshAndPersist();
+  });
+
+  const deleteButton = detailContent.querySelector("#deleteStudentButton");
+  deleteButton?.addEventListener("click", () => {
+    const confirmed = window.confirm(`${student.className} ${student.number}번 ${student.name} 학생을 삭제할까요?`);
+    if (!confirmed) return;
+
+    deleteStudentById(student.id);
+    if (typeof detailModal.close === "function") {
+      detailModal.close();
+    } else {
+      detailModal.removeAttribute("open");
+    }
   });
 
   bindTagEditor(student);
@@ -374,17 +626,63 @@ function showDetail(student) {
   }
 }
 
-function parseCsv(text) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
 
-  if (lines.length < 2) {
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        cell += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        i += 1;
+      }
+      row.push(cell);
+      if (row.some((value) => String(value).trim() !== "")) {
+        rows.push(row);
+      }
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell);
+  if (row.some((value) => String(value).trim() !== "")) {
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function parseCsv(text) {
+  const rows = parseCsvRows(text);
+  if (rows.length < 2) {
     throw new Error("CSV 데이터가 충분하지 않습니다.");
   }
 
-  const headers = lines[0].split(",").map((h) => h.trim());
+  const headers = rows[0].map((h) => String(h).trim());
   const required = ["name", "className", "number"];
 
   required.forEach((key) => {
@@ -393,25 +691,69 @@ function parseCsv(text) {
     }
   });
 
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim());
-    const row = Object.fromEntries(headers.map((h, i) => [h, values[i] || ""]));
-
-    return normalizeStudent({
-      id: makeId(),
-      name: row.name,
-      className: row.className,
-      number: row.number,
-      studentPhone: row.studentPhone,
-      guardian1Name: row.guardian1Name || row.guardianName,
-      guardian1Phone: row.guardian1Phone || row.primaryPhone,
-      guardian2Name: row.guardian2Name,
-      guardian2Phone: row.guardian2Phone,
-      address: row.address,
-      note: row.note,
-      tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : []
+  return rows
+    .slice(1)
+    .filter((values) => values.some((value) => String(value).trim() !== ""))
+    .map((values) => {
+      const row = Object.fromEntries(headers.map((h, i) => [h, (values[i] || "").trim()]));
+      return normalizeStudent({
+        id: makeId(),
+        name: row.name,
+        className: row.className,
+        number: row.number,
+        studentPhone: row.studentPhone,
+        guardian1Name: row.guardian1Name || row.guardianName,
+        guardian1Phone: row.guardian1Phone || row.primaryPhone,
+        guardian2Name: row.guardian2Name,
+        guardian2Phone: row.guardian2Phone,
+        address: row.address,
+        note: row.note,
+        tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : []
+      });
     });
+}
+
+function toCsvCell(value) {
+  const raw = String(value ?? "");
+  const escaped = raw.replace(/"/g, '""');
+  if (/[",\n\r]/.test(escaped)) {
+    return `"${escaped}"`;
+  }
+  return escaped;
+}
+
+function exportStudentsToCsv() {
+  const lines = [EXPORT_HEADERS.join(",")];
+
+  state.students.forEach((student) => {
+    const row = {
+      name: student.name,
+      className: student.className,
+      number: student.number,
+      studentPhone: student.studentPhone,
+      guardian1Name: student.guardian1Name,
+      guardian1Phone: student.guardian1Phone,
+      guardian2Name: student.guardian2Name,
+      guardian2Phone: student.guardian2Phone,
+      address: student.address,
+      note: student.note,
+      tags: (student.tags || []).join("|")
+    };
+
+    lines.push(EXPORT_HEADERS.map((header) => toCsvCell(row[header])).join(","));
   });
+
+  const bom = "\uFEFF";
+  const blob = new Blob([bom + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const datePart = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `class-contacts-${datePart}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 function setCsvError(message = "") {
@@ -424,9 +766,82 @@ function setCsvError(message = "") {
   errorEl.textContent = message;
 }
 
+function clearAddStudentError() {
+  if (addStudentError) {
+    addStudentError.textContent = "";
+  }
+}
+
+function openAddStudentModal() {
+  clearAddStudentError();
+  addStudentForm?.reset();
+
+  if (typeof addStudentModal.showModal === "function") {
+    addStudentModal.showModal();
+  } else {
+    addStudentModal.setAttribute("open", "");
+  }
+}
+
+function closeAddStudentModal() {
+  if (typeof addStudentModal.close === "function") {
+    addStudentModal.close();
+  } else {
+    addStudentModal.removeAttribute("open");
+  }
+}
+
+function parseTagInput(text) {
+  return normalizeTags(
+    String(text || "")
+      .split(",")
+      .map((tag) => canonicalTag(tag))
+      .filter(Boolean)
+  );
+}
+
+function buildStudentFromForm(formData) {
+  return normalizeStudent({
+    id: makeId(),
+    name: formData.get("name"),
+    className: formData.get("className"),
+    number: formData.get("number"),
+    studentPhone: formData.get("studentPhone"),
+    guardian1Name: formData.get("guardian1Name"),
+    guardian1Phone: formData.get("guardian1Phone"),
+    guardian2Name: formData.get("guardian2Name"),
+    guardian2Phone: formData.get("guardian2Phone"),
+    address: formData.get("address"),
+    note: formData.get("note"),
+    tags: parseTagInput(formData.get("tags"))
+  });
+}
+
 searchInput.addEventListener("input", applyFilters);
 classFilter.addEventListener("change", applyFilters);
 tagFilter.addEventListener("change", applyFilters);
+exportCsvButton?.addEventListener("click", exportStudentsToCsv);
+openAddStudentButton?.addEventListener("click", openAddStudentModal);
+cancelAddStudentButton?.addEventListener("click", closeAddStudentModal);
+undoDeleteButton?.addEventListener("click", undoDelete);
+
+addStudentForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  clearAddStudentError();
+
+  const formData = new FormData(addStudentForm);
+  const newStudent = buildStudentFromForm(formData);
+  const validationError = validateStudentInput(newStudent);
+
+  if (validationError) {
+    addStudentError.textContent = validationError;
+    return;
+  }
+
+  upsertStudentInState(newStudent);
+  refreshAndPersist();
+  closeAddStudentModal();
+});
 
 csvInput.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
@@ -436,9 +851,11 @@ csvInput.addEventListener("change", async (event) => {
     const text = await file.text();
     const rows = parseCsv(text);
     state.students = rows;
-    saveStudentsToStorage();
-    populateFilters();
-    applyFilters();
+    state.lastDeleted = null;
+    if (undoBar) {
+      undoBar.hidden = true;
+    }
+    refreshAndPersist();
     setCsvError("");
   } catch (error) {
     setCsvError(error.message || "CSV 파일 처리 중 오류가 발생했습니다.");

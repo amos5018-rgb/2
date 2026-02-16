@@ -42,6 +42,11 @@
           </label>
         </div>
 
+        <div class="management-actions">
+          <button id="openAddStudentButton" type="button" class="button secondary">학생 추가</button>
+          <button id="exportCsvButton" type="button" class="button secondary">CSV 내보내기</button>
+        </div>
+
         <label class="csv-upload">
           <span class="label">CSV 가져오기 (헤더 포함)</span>
           <input id="csvInput" type="file" accept=".csv,text/csv" />
@@ -60,6 +65,84 @@
         <button type="submit" class="button secondary close-button">닫기</button>
       </form>
     </dialog>
+
+    <dialog id="addStudentModal" class="detail-modal">
+      <article class="add-student-panel">
+        <h3>학생 추가</h3>
+        <form id="addStudentForm" class="add-student-form" novalidate>
+          <div class="filter-grid">
+            <label>
+              <span class="label">이름 *</span>
+              <input id="addName" name="name" type="text" required maxlength="30" />
+            </label>
+            <label>
+              <span class="label">반 *</span>
+              <input id="addClass" name="className" type="text" required maxlength="20" placeholder="예: 2반" />
+            </label>
+          </div>
+
+          <div class="filter-grid">
+            <label>
+              <span class="label">번호 *</span>
+              <input id="addNumber" name="number" type="text" inputmode="numeric" required maxlength="10" placeholder="예: 13" />
+            </label>
+            <label>
+              <span class="label">학생 전화</span>
+              <input id="addStudentPhone" name="studentPhone" type="tel" inputmode="tel" maxlength="20" />
+            </label>
+          </div>
+
+          <label>
+            <span class="label">주소</span>
+            <input id="addAddress" name="address" type="text" maxlength="120" />
+          </label>
+
+          <div class="filter-grid">
+            <label>
+              <span class="label">보호자 1 이름</span>
+              <input id="addGuardian1Name" name="guardian1Name" type="text" maxlength="30" />
+            </label>
+            <label>
+              <span class="label">보호자 1 전화</span>
+              <input id="addGuardian1Phone" name="guardian1Phone" type="tel" inputmode="tel" maxlength="20" />
+            </label>
+          </div>
+
+          <div class="filter-grid">
+            <label>
+              <span class="label">보호자 2 이름</span>
+              <input id="addGuardian2Name" name="guardian2Name" type="text" maxlength="30" />
+            </label>
+            <label>
+              <span class="label">보호자 2 전화</span>
+              <input id="addGuardian2Phone" name="guardian2Phone" type="tel" inputmode="tel" maxlength="20" />
+            </label>
+          </div>
+
+          <label>
+            <span class="label">태그 (쉼표로 구분)</span>
+            <input id="addTags" name="tags" type="text" maxlength="120" placeholder="예: 상담필요, 방과후" />
+          </label>
+
+          <label>
+            <span class="label">메모</span>
+            <textarea id="addNote" name="note" class="memo-input" rows="4" placeholder="메모를 입력하세요."></textarea>
+          </label>
+
+          <p id="addStudentError" class="error form-error" aria-live="polite"></p>
+
+          <div class="management-actions">
+            <button type="button" id="cancelAddStudentButton" class="button secondary">취소</button>
+            <button type="submit" class="button call-button">저장</button>
+          </div>
+        </form>
+      </article>
+    </dialog>
+
+    <div id="undoBar" class="undo-bar" hidden>
+      <span id="undoMessage"></span>
+      <button id="undoDeleteButton" type="button" class="button secondary small">삭제 취소</button>
+    </div>
 
     <template id="cardTemplate">
       <article class="student-card" tabindex="0" role="button">

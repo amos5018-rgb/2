@@ -70,7 +70,8 @@ body {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -81,13 +82,21 @@ select {
   color: var(--text);
 }
 
+textarea {
+  resize: vertical;
+  min-height: 110px;
+  font-family: inherit;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid #b9d0ff;
   border-color: #8cb2ff;
 }
 
-.filter-grid {
+.filter-grid,
+.management-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.55rem;
@@ -160,6 +169,7 @@ select:focus {
   text-decoration: none;
   font-weight: 700;
   font-size: 0.94rem;
+  cursor: pointer;
 }
 
 .call-button {
@@ -177,6 +187,17 @@ select:focus {
   color: #27384f;
 }
 
+.button.danger {
+  background: #fff0f0;
+  color: #8f1e1e;
+  border: 1px solid #f0b8b8;
+}
+
+.button.small {
+  min-height: 44px;
+  font-size: 0.86rem;
+  padding: 0.5rem 0.7rem;
+}
 
 .button.disabled {
   opacity: 0.45;
@@ -227,10 +248,20 @@ select:focus {
   backdrop-filter: blur(2px);
 }
 
-#detailContent {
+#detailContent,
+.add-student-panel {
   padding: 1rem 0.95rem 0.7rem;
   max-height: 64vh;
   overflow: auto;
+}
+
+.add-student-panel h3 {
+  margin: 0 0 0.8rem;
+}
+
+.add-student-form {
+  display: grid;
+  gap: 0.6rem;
 }
 
 .detail-grid {
@@ -239,18 +270,10 @@ select:focus {
   font-size: 0.92rem;
 }
 
-
 .memo-editor {
   margin-top: 0.9rem;
   display: grid;
   gap: 0.35rem;
-}
-
-
-.button.small {
-  min-height: 44px;
-  font-size: 0.86rem;
-  padding: 0.5rem 0.7rem;
 }
 
 .tag-editor {
@@ -275,16 +298,24 @@ select:focus {
   padding: 0.25rem 0.3rem 0.25rem 0.55rem;
 }
 
-.tag-remove {
+.tag-remove,
+.tag-rename {
   border: 0;
   background: #d4e5ff;
   color: #113b75;
   border-radius: 999px;
   width: 22px;
   height: 22px;
-  font-size: 0.95rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.tag-rename {
+  font-size: 0.72rem;
+}
+
+.tag-remove {
+  font-size: 0.95rem;
 }
 
 .tag-create-row {
@@ -294,34 +325,8 @@ select:focus {
 }
 
 .memo-input {
-  width: 100%;
   min-height: 132px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0.7rem;
   font-size: 0.92rem;
-  resize: vertical;
-  font-family: inherit;
-}
-
-.memo-input:focus {
-  outline: 2px solid #b9d0ff;
-  border-color: #8cb2ff;
-}
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.2rem;
-}
-
-.tag {
-  background: #e8f1ff;
-  color: #0f3369;
-  font-size: 0.78rem;
-  border-radius: 999px;
-  padding: 0.22rem 0.55rem;
 }
 
 .modal-footer {
@@ -334,6 +339,28 @@ select:focus {
 
 .close-button {
   width: 100%;
+}
+
+.undo-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(92vw, 420px);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border-radius: 12px;
+  background: rgba(15, 27, 46, 0.96);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  z-index: 20;
+}
+
+.undo-bar[hidden] {
+  display: none;
 }
 
 .empty {
@@ -350,4 +377,16 @@ select:focus {
   color: var(--danger);
   margin-top: 0.3rem;
   font-size: 0.82rem;
+}
+
+.form-error {
+  min-height: 1.1rem;
+  margin: 0;
+}
+
+.search-highlight {
+  background: #fff1a8;
+  color: #5a4500;
+  border-radius: 4px;
+  padding: 0 2px;
 }
