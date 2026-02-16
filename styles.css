@@ -45,12 +45,6 @@ body {
   line-height: 1.35;
 }
 
-.app-header p {
-  margin: 0.35rem 0 0;
-  opacity: 0.9;
-  font-size: 0.86rem;
-}
-
 .container {
   width: min(100%, 430px);
   margin: 0 auto;
@@ -181,6 +175,42 @@ select:focus {
 .button.secondary {
   background: #eef2fa;
   color: #27384f;
+}
+
+
+.button.disabled {
+  opacity: 0.45;
+  pointer-events: auto;
+}
+
+.guardian-contact-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.guardian-row {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.6rem;
+  background: #f9fbff;
+}
+
+.guardian-title {
+  margin: 0 0 0.45rem;
+  font-weight: 600;
+}
+
+.guardian-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.guardian-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 .detail-modal {

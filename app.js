@@ -1,41 +1,57 @@
+function makeId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 const seedData = [
   {
-    id: crypto.randomUUID(),
+    id: makeId(),
     name: "김민준",
     className: "2반",
     number: "13",
-    guardianName: "김지연",
-    primaryPhone: "010-1234-5678",
+    studentPhone: "010-2233-1122",
+    guardian1Name: "김지연",
+    guardian1Phone: "010-1234-5678",
+    guardian2Name: "김정우",
+    guardian2Phone: "010-9988-7766",
     address: "서울시 강동구 천호동 00-00",
     note: "수학 보충 관심. 방과후 16:00 이후 연락 권장",
     tags: ["방과후", "상담필요"],
-    extraContacts: ["부: 010-9988-7766", "학생: 010-2233-1122"],
+    extraContacts: ["학원: 02-123-4567"],
     group: "상담"
   },
   {
-    id: crypto.randomUUID(),
+    id: makeId(),
     name: "이서윤",
     className: "2반",
     number: "21",
-    guardianName: "이동훈",
-    primaryPhone: "010-8888-1212",
+    studentPhone: "010-2121-4545",
+    guardian1Name: "이동훈",
+    guardian1Phone: "010-8888-1212",
+    guardian2Name: "최미경",
+    guardian2Phone: "010-7878-3434",
     address: "서울시 송파구 잠실동 00-00",
     note: "알레르기 약 복용",
     tags: ["건강"],
-    extraContacts: ["모: 010-7878-3434"],
+    extraContacts: [],
     group: "건강"
   },
   {
-    id: crypto.randomUUID(),
+    id: makeId(),
     name: "박도현",
     className: "3반",
     number: "7",
-    guardianName: "박수미",
-    primaryPhone: "010-4545-9898",
+    studentPhone: "010-8881-3000",
+    guardian1Name: "박수미",
+    guardian1Phone: "010-4545-9898",
+    guardian2Name: "박민철",
+    guardian2Phone: "010-2020-3030",
     address: "서울시 마포구 상암동 00-00",
     note: "등하교 버스 이용",
     tags: ["통학"],
-    extraContacts: ["조부모: 010-2020-3030"],
+    extraContacts: [],
     group: "통학"
   }
 ];
@@ -56,6 +72,42 @@ const cardTemplate = document.getElementById("cardTemplate");
 
 function toTel(phone = "") {
   return phone.replace(/[^\d+]/g, "");
+}
+
+function setActionLink(button, scheme, phone) {
+  const sanitizedPhone = toTel(phone);
+  if (!sanitizedPhone) {
+    button.removeAttribute("href");
+    button.setAttribute("aria-disabled", "true");
+    button.classList.add("disabled");
+    return;
+  }
+
+  button.href = `${scheme}:${sanitizedPhone}`;
+  button.classList.remove("disabled");
+  button.removeAttribute("aria-disabled");
+}
+
+function normalizeStudent(raw) {
+  const guardian1Name = raw.guardian1Name || raw.guardianName || "";
+  const guardian1Phone = raw.guardian1Phone || raw.primaryPhone || "";
+
+  return {
+    id: raw.id || makeId(),
+    name: raw.name || "",
+    className: raw.className || "",
+    number: raw.number || "",
+    studentPhone: raw.studentPhone || raw.studentPhoneNumber || raw.student_phone || raw.primaryPhone || "",
+    guardian1Name,
+    guardian1Phone,
+    guardian2Name: raw.guardian2Name || "",
+    guardian2Phone: raw.guardian2Phone || "",
+    address: raw.address || "",
+    note: raw.note || "",
+    group: raw.group || "",
+    tags: Array.isArray(raw.tags) ? raw.tags : [],
+    extraContacts: Array.isArray(raw.extraContacts) ? raw.extraContacts : []
+  };
 }
 
 function populateFilters() {
@@ -79,7 +131,15 @@ function populateFilters() {
 
 function matchesSearch(student, term) {
   if (!term) return true;
-  const haystack = [student.name, student.className, student.number, student.note, student.guardianName]
+  const haystack = [
+    student.name,
+    student.className,
+    student.number,
+    student.note,
+    student.guardian1Name,
+    student.guardian2Name,
+    student.studentPhone
+  ]
     .join(" ")
     .toLowerCase();
   return haystack.includes(term);
@@ -113,15 +173,20 @@ function renderCards() {
     const card = cardTemplate.content.firstElementChild.cloneNode(true);
     card.querySelector(".student-name").textContent = student.name;
     card.querySelector(".student-class-number").textContent = `${student.className} ${student.number}번`;
-    card.querySelector(".primary-contact").textContent = `주 연락처(${student.guardianName}): ${student.primaryPhone}`;
+    card.querySelector(".primary-contact").textContent = `주 연락처(${student.guardian1Name || "보호자 1"}): ${
+      student.guardian1Phone || "-"
+    }`;
 
     const callButton = card.querySelector(".call-button");
     const smsButton = card.querySelector(".sms-button");
-    callButton.href = `tel:${toTel(student.primaryPhone)}`;
-    smsButton.href = `sms:${toTel(student.primaryPhone)}`;
+    setActionLink(callButton, "tel", student.studentPhone);
+    setActionLink(smsButton, "sms", student.studentPhone);
 
     [callButton, smsButton].forEach((button) => {
       button.addEventListener("click", (event) => {
+        if (button.classList.contains("disabled")) {
+          event.preventDefault();
+        }
         event.stopPropagation();
       });
     });
@@ -141,14 +206,43 @@ function renderCards() {
   cardList.appendChild(fragment);
 }
 
+function guardianActionRow(label, phone) {
+  if (!phone) {
+    return `
+      <div class="guardian-row">
+        <p class="guardian-title">${label}</p>
+        <p class="guardian-empty">등록된 전화번호가 없습니다.</p>
+      </div>
+    `;
+  }
+
+  const tel = toTel(phone);
+  return `
+    <div class="guardian-row">
+      <p class="guardian-title">${label}: ${phone}</p>
+      <div class="guardian-actions">
+        <a class="button call-button" href="tel:${tel}">전화</a>
+        <a class="button sms-button" href="sms:${tel}">문자</a>
+      </div>
+    </div>
+  `;
+}
+
 function showDetail(student) {
   detailContent.innerHTML = `
     <h3>${student.name} · ${student.className} ${student.number}번</h3>
     <div class="detail-grid">
-      <div><strong>주 보호자</strong>: ${student.guardianName} (${student.primaryPhone})</div>
+      <div><strong>학생 전화</strong>: ${student.studentPhone || "-"}</div>
       <div><strong>주소</strong>: ${student.address || "-"}</div>
       <div><strong>메모</strong>: ${student.note || "-"}</div>
       <div><strong>그룹</strong>: ${student.group || "-"}</div>
+      <div>
+        <strong>보호자 연락</strong>
+        <div class="guardian-contact-list">
+          ${guardianActionRow(student.guardian1Name || "보호자 1", student.guardian1Phone)}
+          ${guardianActionRow(student.guardian2Name || "보호자 2", student.guardian2Phone)}
+        </div>
+      </div>
       <div>
         <strong>태그</strong>
         <div class="tag-list">${(student.tags || []).map((tag) => `<span class="tag">${tag}</span>`).join("") || "-"}</div>
@@ -180,7 +274,7 @@ function parseCsv(text) {
   }
 
   const headers = lines[0].split(",").map((h) => h.trim());
-  const required = ["name", "className", "number", "guardianName", "primaryPhone"];
+  const required = ["name", "className", "number"];
 
   required.forEach((key) => {
     if (!headers.includes(key)) {
@@ -191,21 +285,25 @@ function parseCsv(text) {
   return lines.slice(1).map((line) => {
     const values = line.split(",").map((v) => v.trim());
     const row = Object.fromEntries(headers.map((h, i) => [h, values[i] || ""]));
-    return {
-      id: crypto.randomUUID(),
+
+    return normalizeStudent({
+      id: makeId(),
       name: row.name,
       className: row.className,
       number: row.number,
-      guardianName: row.guardianName,
-      primaryPhone: row.primaryPhone,
-      address: row.address || "",
-      note: row.note || "",
-      group: row.group || "",
+      studentPhone: row.studentPhone,
+      guardian1Name: row.guardian1Name || row.guardianName,
+      guardian1Phone: row.guardian1Phone || row.primaryPhone,
+      guardian2Name: row.guardian2Name,
+      guardian2Phone: row.guardian2Phone,
+      address: row.address,
+      note: row.note,
+      group: row.group,
       tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : [],
       extraContacts: row.extraContacts
         ? row.extraContacts.split("|").map((x) => x.trim()).filter(Boolean)
         : []
-    };
+    });
   });
 }
 
@@ -241,5 +339,7 @@ csvInput.addEventListener("change", async (event) => {
   }
 });
 
+state.students = state.students.map(normalizeStudent);
+state.filtered = [...state.students];
 populateFilters();
 renderCards();

@@ -21,13 +21,14 @@
 1. **카드형 첫 페이지 목록**
    - 학생명
    - 반/번호
-   - 주 연락처(보호자)
+   - 주 연락처(보호자 1)
 
 2. **직관적인 연락 버튼**
-   - `전화` 버튼: `tel:` 링크
-   - `문자` 버튼: `sms:` 링크
+   - 카드의 `전화/문자` 버튼은 **학생 전화번호(`studentPhone`)** 연결
+   - 카드 클릭 후 상세 모달에서 **보호자 1 / 보호자 2 전화·문자 버튼** 제공
 
 3. **상세 패널(모달)**
+   - 학생 전화
    - 주소
    - 메모
    - 태그
@@ -49,10 +50,16 @@
 - `name`
 - `className`
 - `number`
-- `guardianName`
-- `primaryPhone`
 
-선택 헤더:
+권장 헤더:
+
+- `studentPhone` (카드의 전화/문자 버튼 연결 대상)
+- `guardian1Name`
+- `guardian1Phone`
+- `guardian2Name`
+- `guardian2Phone`
+
+추가 선택 헤더:
 
 - `address`
 - `note`
@@ -60,11 +67,13 @@
 - `tags` (`|` 구분)
 - `extraContacts` (`|` 구분)
 
+> 하위 호환: 기존 `guardianName`, `primaryPhone` 헤더도 읽습니다. 이 경우 `guardian1Name`, `guardian1Phone`으로 자동 매핑됩니다.
+
 예시:
 
 ```csv
-name,className,number,guardianName,primaryPhone,address,note,group,tags,extraContacts
-김민준,2반,13,김지연,010-1234-5678,서울시 강동구...,방과후 16시 이후 연락,상담,방과후|상담필요,부:010-9988-7766|학생:010-2233-1122
+name,className,number,studentPhone,guardian1Name,guardian1Phone,guardian2Name,guardian2Phone,address,note,group,tags,extraContacts
+김민준,2반,13,010-2233-1122,김지연,010-1234-5678,김정우,010-9988-7766,서울시 강동구...,방과후 16시 이후 연락,상담,방과후|상담필요,학원:02-123-4567
 ```
 
 ## 실행 방법
