@@ -87,10 +87,13 @@ const tagFilter = document.getElementById("tagFilter");
 const csvInput = document.getElementById("csvInput");
 const exportCsvButton = document.getElementById("exportCsvButton");
 const openAddStudentButton = document.getElementById("openAddStudentButton");
+const openDeleteStudentButton = document.getElementById("openDeleteStudentButton");
 const cancelAddStudentButton = document.getElementById("cancelAddStudentButton");
 const addStudentModal = document.getElementById("addStudentModal");
 const addStudentForm = document.getElementById("addStudentForm");
 const addStudentError = document.getElementById("addStudentError");
+const deleteStudentModal = document.getElementById("deleteStudentModal");
+const deleteStudentList = document.getElementById("deleteStudentList");
 const cardList = document.getElementById("cardList");
 const detailModal = document.getElementById("detailModal");
 const detailContent = document.getElementById("detailContent");
@@ -502,6 +505,54 @@ function undoDelete() {
   refreshAndPersist();
 }
 
+function renderDeleteStudentList() {
+  if (!deleteStudentList) return;
+
+  if (!state.students.length) {
+    deleteStudentList.innerHTML = '<p class="guardian-empty">삭제할 학생이 없습니다.</p>';
+    return;
+  }
+
+  const items = [...state.students]
+    .sort((a, b) => {
+      const classCompare = a.className.localeCompare(b.className, "ko");
+      if (classCompare !== 0) return classCompare;
+      return Number(a.number) - Number(b.number);
+    })
+    .map((student) => {
+      const summary = `${student.className} ${student.number}번 · ${student.name}`;
+      return `
+        <div class="delete-student-item">
+          <div class="delete-student-text">
+            <strong>${escapeHtml(summary)}</strong>
+            <span>${escapeHtml(student.studentPhone || "연락처 없음")}</span>
+          </div>
+          <button type="button" class="button danger small delete-student-confirm" data-id="${escapeHtml(student.id)}">삭제</button>
+        </div>
+      `;
+    })
+    .join("");
+
+  deleteStudentList.innerHTML = items;
+}
+
+function openDeleteStudentModal() {
+  renderDeleteStudentList();
+  if (typeof deleteStudentModal.showModal === "function") {
+    deleteStudentModal.showModal();
+  } else {
+    deleteStudentModal.setAttribute("open", "");
+  }
+}
+
+function closeDeleteStudentModal() {
+  if (typeof deleteStudentModal.close === "function") {
+    deleteStudentModal.close();
+  } else {
+    deleteStudentModal.removeAttribute("open");
+  }
+}
+
 function bindTagEditor(student) {
   const tagList = detailContent.querySelector("#editableTagList");
   const input = detailContent.querySelector("#newTagInput");
@@ -587,7 +638,6 @@ function showDetail(student) {
           <button id="addTagButton" type="button" class="button secondary small">추가</button>
         </div>
       </div>
-      <button id="deleteStudentButton" type="button" class="button danger">학생 삭제</button>
     </div>
 
     <section class="memo-editor">
@@ -604,18 +654,6 @@ function showDetail(student) {
     refreshAndPersist();
   });
 
-  const deleteButton = detailContent.querySelector("#deleteStudentButton");
-  deleteButton?.addEventListener("click", () => {
-    const confirmed = window.confirm(`${student.className} ${student.number}번 ${student.name} 학생을 삭제할까요?`);
-    if (!confirmed) return;
-
-    deleteStudentById(student.id);
-    if (typeof detailModal.close === "function") {
-      detailModal.close();
-    } else {
-      detailModal.removeAttribute("open");
-    }
-  });
 
   bindTagEditor(student);
 
@@ -822,8 +860,24 @@ classFilter.addEventListener("change", applyFilters);
 tagFilter.addEventListener("change", applyFilters);
 exportCsvButton?.addEventListener("click", exportStudentsToCsv);
 openAddStudentButton?.addEventListener("click", openAddStudentModal);
+openDeleteStudentButton?.addEventListener("click", openDeleteStudentModal);
 cancelAddStudentButton?.addEventListener("click", closeAddStudentModal);
 undoDeleteButton?.addEventListener("click", undoDelete);
+
+deleteStudentList?.addEventListener("click", (event) => {
+  const button = event.target.closest(".delete-student-confirm");
+  if (!button) return;
+
+  const id = button.dataset.id || "";
+  const target = state.students.find((student) => student.id === id);
+  if (!target) return;
+
+  const confirmed = window.confirm(`${target.className} ${target.number}번 ${target.name} 학생을 삭제할까요?`);
+  if (!confirmed) return;
+
+  deleteStudentById(id);
+  renderDeleteStudentList();
+});
 
 addStudentForm?.addEventListener("submit", (event) => {
   event.preventDefault();

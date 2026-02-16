@@ -102,9 +102,43 @@ textarea:focus {
   gap: 0.55rem;
 }
 
+.csv-upload {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.csv-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.csv-export-button {
+  min-height: 44px;
+  padding: 0.66rem 0.72rem;
+}
+
 .section-title {
   margin: 0.95rem 0 0.65rem;
   font-size: 1.02rem;
+}
+
+.bottom-management-actions {
+  position: sticky;
+  bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  z-index: 9;
+  margin-top: 0.95rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  padding: 0.6rem;
+  border-radius: 14px;
+  border: 1px solid #c6d4ea;
+  background: linear-gradient(180deg, #f6f9ff, #edf3ff);
+  box-shadow: 0 10px 24px rgba(17, 36, 70, 0.16);
+}
+
+.management-button {
+  min-height: 50px;
 }
 
 .card-list {
@@ -262,6 +296,41 @@ textarea:focus {
 .add-student-form {
   display: grid;
   gap: 0.6rem;
+}
+
+.delete-guide {
+  margin: 0 0 0.5rem;
+}
+
+.delete-student-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.delete-student-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.55rem;
+  background: #f9fbff;
+}
+
+.delete-student-text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.delete-student-text strong {
+  font-size: 0.9rem;
+}
+
+.delete-student-text span {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .detail-grid {
