@@ -17,7 +17,13 @@ const EXPORT_HEADERS = [
   "guardian2Phone",
   "address",
   "note",
-  "tags"
+  "tags",
+  "checks"
+];
+
+const DEFAULT_CHECK_CATEGORIES = [
+  { id: "tardy", name: "지각", color: "#ef4444" },
+  { id: "assignment_missing", name: "과제 미제출", color: "#f59e0b" }
 ];
 
 const SEARCH_SYNONYMS = {
@@ -75,6 +81,7 @@ const seedData = [
 ];
 
 const state = {
+  checkCategories: [...DEFAULT_CHECK_CATEGORIES],
   students: [...seedData],
   filtered: [...seedData],
   lastDeleted: null,
@@ -140,6 +147,13 @@ function normalizeTags(tagsValue) {
 function normalizeStudent(raw) {
   const guardian1Name = raw.guardian1Name || raw.guardianName || "";
   const guardian1Phone = raw.guardian1Phone || raw.primaryPhone || "";
+  const baseChecks = Object.fromEntries(DEFAULT_CHECK_CATEGORIES.map((category) => [category.id, false]));
+  const normalizedChecks = raw && typeof raw.checks === "object" && !Array.isArray(raw.checks) ? raw.checks : {};
+
+  Object.entries(normalizedChecks).forEach(([key, value]) => {
+    if (!key) return;
+    baseChecks[key] = Boolean(value);
+  });
 
   return {
     id: raw.id || makeId(),
@@ -153,7 +167,8 @@ function normalizeStudent(raw) {
     guardian2Phone: String(raw.guardian2Phone || "").trim(),
     address: String(raw.address || "").trim(),
     note: String(raw.note || ""),
-    tags: normalizeTags(raw.tags)
+    tags: normalizeTags(raw.tags),
+    checks: baseChecks
   };
 }
 
@@ -746,7 +761,16 @@ function parseCsv(text) {
         guardian2Phone: row.guardian2Phone,
         address: row.address,
         note: row.note,
-        tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : []
+        tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : [],
+        checks: (() => {
+          if (!row.checks) return {};
+          try {
+            const parsedChecks = JSON.parse(row.checks);
+            return parsedChecks && typeof parsedChecks === "object" && !Array.isArray(parsedChecks) ? parsedChecks : {};
+          } catch (error) {
+            return {};
+          }
+        })()
       });
     });
 }
@@ -775,7 +799,8 @@ function exportStudentsToCsv() {
       guardian2Phone: student.guardian2Phone,
       address: student.address,
       note: student.note,
-      tags: (student.tags || []).join("|")
+      tags: (student.tags || []).join("|"),
+      checks: JSON.stringify(student.checks || {})
     };
 
     lines.push(EXPORT_HEADERS.map((header) => toCsvCell(row[header])).join(","));
