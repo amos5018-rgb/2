@@ -72,11 +72,11 @@ body {
 }
 
 .gear-icon {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   display: block;
   stroke: #fff;
-  stroke-width: 1.8;
+  stroke-width: 2;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
