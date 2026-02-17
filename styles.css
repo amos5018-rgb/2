@@ -107,27 +107,10 @@ textarea:focus {
   gap: 0.42rem;
 }
 
-.csv-inline-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.55rem;
-}
-
 .csv-inline-title {
   margin-bottom: 0;
   font-size: 0.82rem;
   line-height: 1.35;
-}
-
-.csv-inline-button {
-  min-height: calc(0.82rem * 1.35);
-  padding: 0 0.5rem;
-  font-size: 0.82rem;
-  line-height: 1.35;
-  font-weight: 600;
-  border-radius: 10px;
-  white-space: nowrap;
 }
 
 .section-title {
@@ -139,7 +122,7 @@ textarea:focus {
   margin-top: 0.95rem;
   margin-bottom: calc(0.35rem + env(safe-area-inset-bottom, 0px));
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.55rem;
   padding: 0.6rem;
   border-radius: 14px;
