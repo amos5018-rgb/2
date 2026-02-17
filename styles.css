@@ -139,13 +139,29 @@ textarea:focus {
   margin-top: 0.95rem;
   margin-bottom: calc(0.35rem + env(safe-area-inset-bottom, 0px));
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.55rem;
   padding: 0.6rem;
   border-radius: 14px;
   border: 1px solid #c6d4ea;
   background: linear-gradient(180deg, #f6f9ff, #edf3ff);
   box-shadow: 0 10px 24px rgba(17, 36, 70, 0.16);
+}
+
+.check-category-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.55rem;
+  background: #f9fbff;
+}
+
+.check-category-actions {
+  display: flex;
+  gap: 0.35rem;
 }
 
 .management-button {
