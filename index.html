@@ -11,7 +11,10 @@
   </head>
   <body>
     <header class="app-header">
-      <h1>학급 연락처 관리</h1>
+      <div class="header-row">
+        <h1>학급 연락처 관리</h1>
+        <button id="openSettingsButton" type="button" class="icon-button" aria-label="설정 열기" title="설정">⚙️</button>
+      </div>
     </header>
 
     <main class="container">
@@ -63,14 +66,22 @@
         <div id="cardList" class="card-list" aria-live="polite"></div>
       </section>
 
-      <div class="bottom-management-actions" aria-label="학생 관리 버튼">
-        <button id="openAddStudentButton" type="button" class="button secondary management-button">학생 추가</button>
-        <button id="openDeleteStudentButton" type="button" class="button danger management-button">학생 삭제</button>
-        <button id="openCheckCategoryButton" type="button" class="button secondary management-button">체크 항목 관리</button>
-        <button id="exportCsvButton" type="button" class="button secondary management-button">CSV 내보내기</button>
-      </div>
-
     </main>
+
+    <dialog id="settingsModal" class="detail-modal">
+      <article class="add-student-panel">
+        <h3>설정</h3>
+        <div class="bottom-management-actions" aria-label="학생 관리 버튼">
+          <button id="openAddStudentButton" type="button" class="button secondary management-button">학생 추가</button>
+          <button id="openDeleteStudentButton" type="button" class="button danger management-button">학생 삭제</button>
+          <button id="openCheckCategoryButton" type="button" class="button secondary management-button">체크 항목 관리</button>
+          <button id="exportCsvButton" type="button" class="button secondary management-button">CSV 내보내기</button>
+        </div>
+      </article>
+      <form method="dialog" class="modal-footer">
+        <button type="submit" class="button secondary close-button">닫기</button>
+      </form>
+    </dialog>
 
     <dialog id="detailModal" class="detail-modal">
       <article id="detailContent"></article>

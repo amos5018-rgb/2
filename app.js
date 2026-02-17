@@ -95,6 +95,7 @@ const tagFilter = document.getElementById("tagFilter");
 const checkFilter = document.getElementById("checkFilter");
 const csvInput = document.getElementById("csvInput");
 const exportCsvButton = document.getElementById("exportCsvButton");
+const openSettingsButton = document.getElementById("openSettingsButton");
 const openAddStudentButton = document.getElementById("openAddStudentButton");
 const openDeleteStudentButton = document.getElementById("openDeleteStudentButton");
 const openCheckCategoryButton = document.getElementById("openCheckCategoryButton");
@@ -116,6 +117,7 @@ const cardTemplate = document.getElementById("cardTemplate");
 const undoBar = document.getElementById("undoBar");
 const undoMessage = document.getElementById("undoMessage");
 const undoDeleteButton = document.getElementById("undoDeleteButton");
+const settingsModal = document.getElementById("settingsModal");
 
 function escapeHtml(text = "") {
   return String(text)
@@ -754,6 +756,22 @@ function closeDeleteStudentModal() {
   }
 }
 
+function openSettingsModal() {
+  if (typeof settingsModal?.showModal === "function") {
+    settingsModal.showModal();
+  } else {
+    settingsModal?.setAttribute("open", "");
+  }
+}
+
+function closeSettingsModal() {
+  if (typeof settingsModal?.close === "function") {
+    settingsModal.close();
+  } else {
+    settingsModal?.removeAttribute("open");
+  }
+}
+
 function clearCheckCategoryError() {
   if (checkCategoryError) {
     checkCategoryError.textContent = "";
@@ -1111,10 +1129,23 @@ searchInput.addEventListener("input", applyFilters);
 classFilter.addEventListener("change", applyFilters);
 tagFilter.addEventListener("change", applyFilters);
 checkFilter.addEventListener("change", applyFilters);
-exportCsvButton?.addEventListener("click", exportStudentsToCsv);
-openAddStudentButton?.addEventListener("click", openAddStudentModal);
-openDeleteStudentButton?.addEventListener("click", openDeleteStudentModal);
-openCheckCategoryButton?.addEventListener("click", openCheckCategoryModal);
+exportCsvButton?.addEventListener("click", () => {
+  closeSettingsModal();
+  exportStudentsToCsv();
+});
+openAddStudentButton?.addEventListener("click", () => {
+  closeSettingsModal();
+  openAddStudentModal();
+});
+openDeleteStudentButton?.addEventListener("click", () => {
+  closeSettingsModal();
+  openDeleteStudentModal();
+});
+openCheckCategoryButton?.addEventListener("click", () => {
+  closeSettingsModal();
+  openCheckCategoryModal();
+});
+openSettingsButton?.addEventListener("click", openSettingsModal);
 cancelAddStudentButton?.addEventListener("click", closeAddStudentModal);
 undoDeleteButton?.addEventListener("click", undoDelete);
 
