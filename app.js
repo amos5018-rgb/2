@@ -6,6 +6,7 @@ function makeId() {
 }
 
 const STORAGE_KEY = "class-contact-students-v1";
+const CHECK_CATEGORY_STORAGE_KEY = "class-contact-check-categories-v1";
 const EXPORT_HEADERS = [
   "name",
   "className",
@@ -34,6 +35,11 @@ const SEARCH_SYNONYMS = {
   통학: ["등하교"],
   건강: ["알레르기", "보건"]
 };
+
+const DEFAULT_CHECK_CATEGORIES = [
+  { id: "late", label: "지각" },
+  { id: "noSubmit", label: "미제출" }
+];
 
 const seedData = [
   {
@@ -84,6 +90,7 @@ const state = {
   checkCategories: [...DEFAULT_CHECK_CATEGORIES],
   students: [...seedData],
   filtered: [...seedData],
+  checkCategories: [...DEFAULT_CHECK_CATEGORIES],
   lastDeleted: null,
   undoTimer: null
 };
@@ -91,16 +98,23 @@ const state = {
 const searchInput = document.getElementById("searchInput");
 const classFilter = document.getElementById("classFilter");
 const tagFilter = document.getElementById("tagFilter");
+const checkFilter = document.getElementById("checkFilter");
 const csvInput = document.getElementById("csvInput");
 const exportCsvButton = document.getElementById("exportCsvButton");
 const openAddStudentButton = document.getElementById("openAddStudentButton");
 const openDeleteStudentButton = document.getElementById("openDeleteStudentButton");
+const openCheckCategoryButton = document.getElementById("openCheckCategoryButton");
 const cancelAddStudentButton = document.getElementById("cancelAddStudentButton");
 const addStudentModal = document.getElementById("addStudentModal");
 const addStudentForm = document.getElementById("addStudentForm");
 const addStudentError = document.getElementById("addStudentError");
 const deleteStudentModal = document.getElementById("deleteStudentModal");
 const deleteStudentList = document.getElementById("deleteStudentList");
+const checkCategoryModal = document.getElementById("checkCategoryModal");
+const checkCategoryList = document.getElementById("checkCategoryList");
+const checkCategoryError = document.getElementById("checkCategoryError");
+const newCheckCategoryInput = document.getElementById("newCheckCategoryInput");
+const addCheckCategoryButton = document.getElementById("addCheckCategoryButton");
 const cardList = document.getElementById("cardList");
 const detailModal = document.getElementById("detailModal");
 const detailContent = document.getElementById("detailContent");
@@ -142,6 +156,20 @@ function normalizeTags(tagsValue) {
   });
 
   return [...unique.values()];
+}
+
+function hasCheckCategory(student, category) {
+  const tags = normalizeTags(student.tags).map((tag) => tagKey(tag));
+
+  if (category === "late") {
+    return tags.some((tag) => tag.includes("지각"));
+  }
+
+  if (category === "missing") {
+    return tags.some((tag) => tag.includes("미제출"));
+  }
+
+  return true;
 }
 
 function normalizeStudent(raw) {
@@ -191,6 +219,86 @@ function saveStudentsToStorage() {
   } catch (error) {
     console.warn("데이터를 저장하지 못했습니다.", error);
   }
+}
+
+function loadCheckCategoriesFromStorage() {
+  try {
+    const raw = localStorage.getItem(CHECK_CATEGORY_STORAGE_KEY);
+    if (!raw) return null;
+    return normalizeCheckCategories(JSON.parse(raw));
+  } catch (error) {
+    console.warn("체크 항목을 불러오지 못했습니다.", error);
+    return null;
+  }
+}
+
+function saveCheckCategoriesToStorage() {
+  try {
+    localStorage.setItem(CHECK_CATEGORY_STORAGE_KEY, JSON.stringify(state.checkCategories));
+  } catch (error) {
+    console.warn("체크 항목을 저장하지 못했습니다.", error);
+  }
+}
+
+function findCheckCategoryById(id) {
+  return state.checkCategories.find((category) => category.id === id) || null;
+}
+
+function addCheckCategory(name) {
+  const normalized = canonicalTag(name);
+  const key = tagKey(normalized);
+  if (!normalized) {
+    return { ok: false, message: "항목 이름을 입력하세요." };
+  }
+
+  const exists = state.checkCategories.some((category) => tagKey(category.name) === key);
+  if (exists) {
+    return { ok: false, message: "같은 이름의 체크 항목이 이미 있습니다." };
+  }
+
+  const created = { id: makeId(), name: normalized };
+  state.checkCategories.push(created);
+  saveCheckCategoriesToStorage();
+  return { ok: true, category: created };
+}
+
+function renameCheckCategory(id, nextName) {
+  const target = findCheckCategoryById(id);
+  if (!target) {
+    return { ok: false, message: "체크 항목을 찾을 수 없습니다." };
+  }
+
+  const normalized = canonicalTag(nextName);
+  if (!normalized) {
+    return { ok: false, message: "항목 이름을 입력하세요." };
+  }
+
+  const duplicated = state.checkCategories.some((category) => category.id !== id && tagKey(category.name) === tagKey(normalized));
+  if (duplicated) {
+    return { ok: false, message: "같은 이름의 체크 항목이 이미 있습니다." };
+  }
+
+  target.name = normalized;
+  saveCheckCategoriesToStorage();
+  return { ok: true, category: target };
+}
+
+function removeCheckCategory(id) {
+  const index = state.checkCategories.findIndex((category) => category.id === id);
+  if (index < 0) {
+    return { ok: false, message: "체크 항목을 찾을 수 없습니다." };
+  }
+
+  const [removed] = state.checkCategories.splice(index, 1);
+  state.students = state.students.map((student) => {
+    const checks = { ...(student.checks || {}) };
+    delete checks[id];
+    return { ...student, checks };
+  });
+
+  saveCheckCategoriesToStorage();
+  refreshAndPersist();
+  return { ok: true, category: removed };
 }
 
 function toTel(phone = "") {
@@ -309,6 +417,7 @@ function refreshAndPersist() {
 function populateFilters() {
   const prevClass = classFilter.value;
   const prevTag = tagFilter.value;
+  const prevCheck = checkFilter.value;
 
   const classes = [...new Set(state.students.map((s) => s.className).filter(Boolean))].sort();
   const tagStats = new Map();
@@ -325,6 +434,10 @@ function populateFilters() {
   });
 
   const tags = [...tagStats.values()].sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  const checkStats = {
+    late: state.students.filter((student) => hasCheckCategory(student, "late")).length,
+    missing: state.students.filter((student) => hasCheckCategory(student, "missing")).length
+  };
 
   classFilter.innerHTML = `<option value="all">전체 반</option>${classes
     .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
@@ -334,19 +447,28 @@ function populateFilters() {
     .map((tag) => `<option value="${escapeHtml(tag.label)}">${escapeHtml(tag.label)} (${tag.count})</option>`)
     .join("")}`;
 
+  checkFilter.innerHTML = `
+    <option value="all">전체 체크</option>
+    <option value="late">지각 체크됨 (${checkStats.late})</option>
+    <option value="missing">미제출 체크됨 (${checkStats.missing})</option>
+  `;
+
   classFilter.value = classes.includes(prevClass) ? prevClass : "all";
   tagFilter.value = tags.map((tag) => tag.label).includes(prevTag) ? prevTag : "all";
+  checkFilter.value = ["all", "late", "missing"].includes(prevCheck) ? prevCheck : "all";
 }
 
 function applyFilters() {
   const tokens = parseSearchTokens(searchInput.value);
   const selectedClass = classFilter.value;
   const selectedTag = tagFilter.value;
+  const selectedCheck = checkFilter.value;
 
   state.filtered = state.students.filter((student) => {
     const classOk = selectedClass === "all" || student.className === selectedClass;
     const tagOk = selectedTag === "all" || (student.tags || []).some((tag) => tagKey(tag) === tagKey(selectedTag));
-    return classOk && tagOk && matchesSearch(student, tokens);
+    const checkOk = selectedCheck === "all" || hasCheckCategory(student, selectedCheck);
+    return classOk && tagOk && checkOk && matchesSearch(student, tokens);
   });
 
   renderCards(tokens);
@@ -370,6 +492,7 @@ function renderCards(tokens = parseSearchTokens(searchInput.value)) {
 
     const callButton = card.querySelector(".call-button");
     const smsButton = card.querySelector(".sms-button");
+    const checksContainer = card.querySelector(".card-checks");
     setActionLink(callButton, "tel", student.studentPhone);
     setActionLink(smsButton, "sms", student.studentPhone);
 
@@ -380,6 +503,32 @@ function renderCards(tokens = parseSearchTokens(searchInput.value)) {
         }
         event.stopPropagation();
       });
+    });
+
+    state.checkCategories.forEach((category) => {
+      const checkItem = document.createElement("label");
+      checkItem.className = "card-check-item";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = Boolean(student.checks?.[category.id]);
+      checkbox.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      checkbox.addEventListener("change", (event) => {
+        event.stopPropagation();
+        student.checks = {
+          ...(student.checks || {}),
+          [category.id]: event.target.checked
+        };
+        refreshAndPersist();
+      });
+
+      const text = document.createElement("span");
+      text.textContent = category.label;
+
+      checkItem.append(checkbox, text);
+      checksContainer?.appendChild(checkItem);
     });
 
     const openDetail = () => showDetail(student);
@@ -565,6 +714,55 @@ function closeDeleteStudentModal() {
     deleteStudentModal.close();
   } else {
     deleteStudentModal.removeAttribute("open");
+  }
+}
+
+function clearCheckCategoryError() {
+  if (checkCategoryError) {
+    checkCategoryError.textContent = "";
+  }
+}
+
+function renderCheckCategoryList() {
+  if (!checkCategoryList) return;
+
+  if (!state.checkCategories.length) {
+    checkCategoryList.innerHTML = "<p class=\"guardian-empty\">등록된 체크 항목이 없습니다.</p>";
+    return;
+  }
+
+  const html = state.checkCategories
+    .map((category) => {
+      const checkedCount = state.students.filter((student) => Boolean(student.checks?.[category.id])).length;
+      return `
+        <div class="check-category-item">
+          <div class="delete-student-text">
+            <strong>${escapeHtml(category.name)}</strong>
+            <span>${checkedCount}명 체크됨</span>
+          </div>
+          <div class="check-category-actions">
+            <button type="button" class="button secondary small rename-check-category" data-id="${escapeHtml(category.id)}">이름 변경</button>
+            <button type="button" class="button danger small remove-check-category" data-id="${escapeHtml(category.id)}">삭제</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  checkCategoryList.innerHTML = html;
+}
+
+function openCheckCategoryModal() {
+  clearCheckCategoryError();
+  if (newCheckCategoryInput) {
+    newCheckCategoryInput.value = "";
+  }
+  renderCheckCategoryList();
+
+  if (typeof checkCategoryModal?.showModal === "function") {
+    checkCategoryModal.showModal();
+  } else {
+    checkCategoryModal?.setAttribute("open", "");
   }
 }
 
@@ -788,6 +986,10 @@ function exportStudentsToCsv() {
   const lines = [EXPORT_HEADERS.join(",")];
 
   state.students.forEach((student) => {
+    const categoryPairs = normalizeCheckCategories(student.checkCategories).map((item) => `${item.id}:${item.name}`);
+    const checksById = normalizeChecks(student.checks);
+    const checkPairs = Object.entries(checksById).map(([id, value]) => `${id}:${value}`);
+
     const row = {
       name: student.name,
       className: student.className,
@@ -883,11 +1085,76 @@ function buildStudentFromForm(formData) {
 searchInput.addEventListener("input", applyFilters);
 classFilter.addEventListener("change", applyFilters);
 tagFilter.addEventListener("change", applyFilters);
+checkFilter.addEventListener("change", applyFilters);
 exportCsvButton?.addEventListener("click", exportStudentsToCsv);
 openAddStudentButton?.addEventListener("click", openAddStudentModal);
 openDeleteStudentButton?.addEventListener("click", openDeleteStudentModal);
+openCheckCategoryButton?.addEventListener("click", openCheckCategoryModal);
 cancelAddStudentButton?.addEventListener("click", closeAddStudentModal);
 undoDeleteButton?.addEventListener("click", undoDelete);
+
+addCheckCategoryButton?.addEventListener("click", () => {
+  clearCheckCategoryError();
+  const result = addCheckCategory(newCheckCategoryInput?.value || "");
+  if (!result.ok) {
+    if (checkCategoryError) checkCategoryError.textContent = result.message;
+    return;
+  }
+
+  if (newCheckCategoryInput) {
+    newCheckCategoryInput.value = "";
+    newCheckCategoryInput.focus();
+  }
+  renderCheckCategoryList();
+});
+
+newCheckCategoryInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addCheckCategoryButton?.click();
+  }
+});
+
+checkCategoryList?.addEventListener("click", (event) => {
+  const renameButton = event.target.closest(".rename-check-category");
+  if (renameButton) {
+    const id = renameButton.dataset.id || "";
+    const target = findCheckCategoryById(id);
+    if (!target) return;
+
+    const nextName = window.prompt("체크 항목 이름 변경", target.name);
+    if (nextName == null) return;
+
+    const result = renameCheckCategory(id, nextName);
+    if (!result.ok) {
+      if (checkCategoryError) checkCategoryError.textContent = result.message;
+      return;
+    }
+
+    clearCheckCategoryError();
+    renderCheckCategoryList();
+    return;
+  }
+
+  const removeButton = event.target.closest(".remove-check-category");
+  if (!removeButton) return;
+
+  const id = removeButton.dataset.id || "";
+  const target = findCheckCategoryById(id);
+  if (!target) return;
+
+  const confirmed = window.confirm(`체크 항목 "${target.name}"을(를) 삭제할까요?\n모든 학생의 체크 데이터에서도 제거됩니다.`);
+  if (!confirmed) return;
+
+  const result = removeCheckCategory(id);
+  if (!result.ok) {
+    if (checkCategoryError) checkCategoryError.textContent = result.message;
+    return;
+  }
+
+  clearCheckCategoryError();
+  renderCheckCategoryList();
+});
 
 deleteStudentList?.addEventListener("click", (event) => {
   const button = event.target.closest(".delete-student-confirm");
@@ -942,6 +1209,9 @@ csvInput.addEventListener("change", async (event) => {
     csvInput.value = "";
   }
 });
+
+const storedCategories = loadCheckCategoriesFromStorage();
+state.checkCategories = normalizeCheckCategories(storedCategories || []);
 
 const storedStudents = loadStudentsFromStorage();
 state.students = (storedStudents && storedStudents.length ? storedStudents : seedData).map(normalizeStudent);
