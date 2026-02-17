@@ -98,13 +98,21 @@
 - `note`
 - `tags` (`|` 구분)
 
+체크 데이터 권장 헤더:
+
+- `checkCategories` (`id:name|id2:name2` 형식)
+- `checks` (학생 행 단위 `id:0|id2:1` 형식)
+
+> 체크 데이터 파싱 규칙: `:` 구분자가 없거나 id/값이 비어 있는 토큰은 무시됩니다. `checks` 값은 `0`, `1`(또는 `true`, `false`)만 반영됩니다.
+> 하위 호환: 기존 CSV에 `checkCategories`, `checks` 컬럼이 없어도 정상적으로 가져오며, 내보내기 시에는 두 컬럼이 항상 포함됩니다.
+
 > 하위 호환: 기존 `guardianName`, `primaryPhone` 헤더도 읽습니다. 이 경우 `guardian1Name`, `guardian1Phone`으로 자동 매핑됩니다.
 
 예시:
 
 ```csv
-name,className,number,studentPhone,guardian1Name,guardian1Phone,guardian2Name,guardian2Phone,address,note,tags
-김민준,2반,13,010-2233-1122,김지연,010-1234-5678,김정우,010-9988-7766,서울시 강동구...,방과후 16시 이후 연락,방과후|상담필요
+name,className,number,studentPhone,guardian1Name,guardian1Phone,guardian2Name,guardian2Phone,address,note,tags,checkCategories,checks
+김민준,2반,13,010-2233-1122,김지연,010-1234-5678,김정우,010-9988-7766,서울시 강동구...,방과후 16시 이후 연락,방과후|상담필요,tardy:지각|assignment_missing:과제미제출,tardy:1|assignment_missing:0
 ```
 샘플 파일: `sample_contacts.csv`를 그대로 업로드해 동작을 바로 확인할 수 있습니다.
 내보내기 버튼(`CSV 내보내기`)으로 현재 데이터 상태를 다시 CSV로 백업할 수 있습니다.

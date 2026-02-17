@@ -69,6 +69,7 @@
       <div class="bottom-management-actions" aria-label="학생 관리 버튼">
         <button id="openAddStudentButton" type="button" class="button secondary management-button">학생 추가</button>
         <button id="openDeleteStudentButton" type="button" class="button danger management-button">학생 삭제</button>
+        <button id="openCheckCategoryButton" type="button" class="button secondary management-button">체크 항목 관리</button>
       </div>
 
     </main>
@@ -161,6 +162,21 @@
       </article>
       <form method="dialog" class="modal-footer">
         <button id="closeDeleteStudentButton" type="submit" class="button secondary close-button">닫기</button>
+      </form>
+    </dialog>
+
+    <dialog id="checkCategoryModal" class="detail-modal">
+      <article class="add-student-panel">
+        <h3>체크 항목 관리</h3>
+        <div class="tag-create-row">
+          <input id="newCheckCategoryInput" type="text" maxlength="30" placeholder="새 체크 항목 이름" />
+          <button id="addCheckCategoryButton" type="button" class="button secondary small">추가</button>
+        </div>
+        <p id="checkCategoryError" class="error form-error" aria-live="polite"></p>
+        <div id="checkCategoryList" class="delete-student-list"></div>
+      </article>
+      <form method="dialog" class="modal-footer">
+        <button id="closeCheckCategoryButton" type="submit" class="button secondary close-button">닫기</button>
       </form>
     </dialog>
 

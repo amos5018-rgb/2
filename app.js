@@ -6,6 +6,7 @@ function makeId() {
 }
 
 const STORAGE_KEY = "class-contact-students-v1";
+const CHECK_CATEGORY_STORAGE_KEY = "class-contact-check-categories-v1";
 const EXPORT_HEADERS = [
   "name",
   "className",
@@ -17,7 +18,9 @@ const EXPORT_HEADERS = [
   "guardian2Phone",
   "address",
   "note",
-  "tags"
+  "tags",
+  "checkCategories",
+  "checks"
 ];
 
 const SEARCH_SYNONYMS = {
@@ -77,6 +80,7 @@ const seedData = [
 const state = {
   students: [...seedData],
   filtered: [...seedData],
+  checkCategories: [],
   lastDeleted: null,
   undoTimer: null
 };
@@ -89,12 +93,18 @@ const csvInput = document.getElementById("csvInput");
 const exportCsvButton = document.getElementById("exportCsvButton");
 const openAddStudentButton = document.getElementById("openAddStudentButton");
 const openDeleteStudentButton = document.getElementById("openDeleteStudentButton");
+const openCheckCategoryButton = document.getElementById("openCheckCategoryButton");
 const cancelAddStudentButton = document.getElementById("cancelAddStudentButton");
 const addStudentModal = document.getElementById("addStudentModal");
 const addStudentForm = document.getElementById("addStudentForm");
 const addStudentError = document.getElementById("addStudentError");
 const deleteStudentModal = document.getElementById("deleteStudentModal");
 const deleteStudentList = document.getElementById("deleteStudentList");
+const checkCategoryModal = document.getElementById("checkCategoryModal");
+const checkCategoryList = document.getElementById("checkCategoryList");
+const checkCategoryError = document.getElementById("checkCategoryError");
+const newCheckCategoryInput = document.getElementById("newCheckCategoryInput");
+const addCheckCategoryButton = document.getElementById("addCheckCategoryButton");
 const cardList = document.getElementById("cardList");
 const detailModal = document.getElementById("detailModal");
 const detailContent = document.getElementById("detailContent");
@@ -168,7 +178,9 @@ function normalizeStudent(raw) {
     guardian2Phone: String(raw.guardian2Phone || "").trim(),
     address: String(raw.address || "").trim(),
     note: String(raw.note || ""),
-    tags: normalizeTags(raw.tags)
+    tags: normalizeTags(raw.tags),
+    checkCategories: normalizeCheckCategories(raw.checkCategories),
+    checks: normalizeChecks(raw.checks)
   };
 }
 
@@ -191,6 +203,86 @@ function saveStudentsToStorage() {
   } catch (error) {
     console.warn("데이터를 저장하지 못했습니다.", error);
   }
+}
+
+function loadCheckCategoriesFromStorage() {
+  try {
+    const raw = localStorage.getItem(CHECK_CATEGORY_STORAGE_KEY);
+    if (!raw) return null;
+    return normalizeCheckCategories(JSON.parse(raw));
+  } catch (error) {
+    console.warn("체크 항목을 불러오지 못했습니다.", error);
+    return null;
+  }
+}
+
+function saveCheckCategoriesToStorage() {
+  try {
+    localStorage.setItem(CHECK_CATEGORY_STORAGE_KEY, JSON.stringify(state.checkCategories));
+  } catch (error) {
+    console.warn("체크 항목을 저장하지 못했습니다.", error);
+  }
+}
+
+function findCheckCategoryById(id) {
+  return state.checkCategories.find((category) => category.id === id) || null;
+}
+
+function addCheckCategory(name) {
+  const normalized = canonicalTag(name);
+  const key = tagKey(normalized);
+  if (!normalized) {
+    return { ok: false, message: "항목 이름을 입력하세요." };
+  }
+
+  const exists = state.checkCategories.some((category) => tagKey(category.name) === key);
+  if (exists) {
+    return { ok: false, message: "같은 이름의 체크 항목이 이미 있습니다." };
+  }
+
+  const created = { id: makeId(), name: normalized };
+  state.checkCategories.push(created);
+  saveCheckCategoriesToStorage();
+  return { ok: true, category: created };
+}
+
+function renameCheckCategory(id, nextName) {
+  const target = findCheckCategoryById(id);
+  if (!target) {
+    return { ok: false, message: "체크 항목을 찾을 수 없습니다." };
+  }
+
+  const normalized = canonicalTag(nextName);
+  if (!normalized) {
+    return { ok: false, message: "항목 이름을 입력하세요." };
+  }
+
+  const duplicated = state.checkCategories.some((category) => category.id !== id && tagKey(category.name) === tagKey(normalized));
+  if (duplicated) {
+    return { ok: false, message: "같은 이름의 체크 항목이 이미 있습니다." };
+  }
+
+  target.name = normalized;
+  saveCheckCategoriesToStorage();
+  return { ok: true, category: target };
+}
+
+function removeCheckCategory(id) {
+  const index = state.checkCategories.findIndex((category) => category.id === id);
+  if (index < 0) {
+    return { ok: false, message: "체크 항목을 찾을 수 없습니다." };
+  }
+
+  const [removed] = state.checkCategories.splice(index, 1);
+  state.students = state.students.map((student) => {
+    const checks = { ...(student.checks || {}) };
+    delete checks[id];
+    return { ...student, checks };
+  });
+
+  saveCheckCategoriesToStorage();
+  refreshAndPersist();
+  return { ok: true, category: removed };
 }
 
 function toTel(phone = "") {
@@ -582,6 +674,55 @@ function closeDeleteStudentModal() {
   }
 }
 
+function clearCheckCategoryError() {
+  if (checkCategoryError) {
+    checkCategoryError.textContent = "";
+  }
+}
+
+function renderCheckCategoryList() {
+  if (!checkCategoryList) return;
+
+  if (!state.checkCategories.length) {
+    checkCategoryList.innerHTML = "<p class=\"guardian-empty\">등록된 체크 항목이 없습니다.</p>";
+    return;
+  }
+
+  const html = state.checkCategories
+    .map((category) => {
+      const checkedCount = state.students.filter((student) => Boolean(student.checks?.[category.id])).length;
+      return `
+        <div class="check-category-item">
+          <div class="delete-student-text">
+            <strong>${escapeHtml(category.name)}</strong>
+            <span>${checkedCount}명 체크됨</span>
+          </div>
+          <div class="check-category-actions">
+            <button type="button" class="button secondary small rename-check-category" data-id="${escapeHtml(category.id)}">이름 변경</button>
+            <button type="button" class="button danger small remove-check-category" data-id="${escapeHtml(category.id)}">삭제</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  checkCategoryList.innerHTML = html;
+}
+
+function openCheckCategoryModal() {
+  clearCheckCategoryError();
+  if (newCheckCategoryInput) {
+    newCheckCategoryInput.value = "";
+  }
+  renderCheckCategoryList();
+
+  if (typeof checkCategoryModal?.showModal === "function") {
+    checkCategoryModal.showModal();
+  } else {
+    checkCategoryModal?.setAttribute("open", "");
+  }
+}
+
 function bindTagEditor(student) {
   const tagList = detailContent.querySelector("#editableTagList");
   const input = detailContent.querySelector("#newTagInput");
@@ -775,7 +916,9 @@ function parseCsv(text) {
         guardian2Phone: row.guardian2Phone,
         address: row.address,
         note: row.note,
-        tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : []
+        tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : [],
+        checkCategories: row.checkCategories,
+        checks: row.checks
       });
     });
 }
@@ -793,6 +936,10 @@ function exportStudentsToCsv() {
   const lines = [EXPORT_HEADERS.join(",")];
 
   state.students.forEach((student) => {
+    const categoryPairs = normalizeCheckCategories(student.checkCategories).map((item) => `${item.id}:${item.name}`);
+    const checksById = normalizeChecks(student.checks);
+    const checkPairs = Object.entries(checksById).map(([id, value]) => `${id}:${value}`);
+
     const row = {
       name: student.name,
       className: student.className,
@@ -804,7 +951,9 @@ function exportStudentsToCsv() {
       guardian2Phone: student.guardian2Phone,
       address: student.address,
       note: student.note,
-      tags: (student.tags || []).join("|")
+      tags: (student.tags || []).join("|"),
+      checkCategories: categoryPairs.join("|"),
+      checks: checkPairs.join("|")
     };
 
     lines.push(EXPORT_HEADERS.map((header) => toCsvCell(row[header])).join(","));
@@ -891,8 +1040,72 @@ checkFilter.addEventListener("change", applyFilters);
 exportCsvButton?.addEventListener("click", exportStudentsToCsv);
 openAddStudentButton?.addEventListener("click", openAddStudentModal);
 openDeleteStudentButton?.addEventListener("click", openDeleteStudentModal);
+openCheckCategoryButton?.addEventListener("click", openCheckCategoryModal);
 cancelAddStudentButton?.addEventListener("click", closeAddStudentModal);
 undoDeleteButton?.addEventListener("click", undoDelete);
+
+addCheckCategoryButton?.addEventListener("click", () => {
+  clearCheckCategoryError();
+  const result = addCheckCategory(newCheckCategoryInput?.value || "");
+  if (!result.ok) {
+    if (checkCategoryError) checkCategoryError.textContent = result.message;
+    return;
+  }
+
+  if (newCheckCategoryInput) {
+    newCheckCategoryInput.value = "";
+    newCheckCategoryInput.focus();
+  }
+  renderCheckCategoryList();
+});
+
+newCheckCategoryInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addCheckCategoryButton?.click();
+  }
+});
+
+checkCategoryList?.addEventListener("click", (event) => {
+  const renameButton = event.target.closest(".rename-check-category");
+  if (renameButton) {
+    const id = renameButton.dataset.id || "";
+    const target = findCheckCategoryById(id);
+    if (!target) return;
+
+    const nextName = window.prompt("체크 항목 이름 변경", target.name);
+    if (nextName == null) return;
+
+    const result = renameCheckCategory(id, nextName);
+    if (!result.ok) {
+      if (checkCategoryError) checkCategoryError.textContent = result.message;
+      return;
+    }
+
+    clearCheckCategoryError();
+    renderCheckCategoryList();
+    return;
+  }
+
+  const removeButton = event.target.closest(".remove-check-category");
+  if (!removeButton) return;
+
+  const id = removeButton.dataset.id || "";
+  const target = findCheckCategoryById(id);
+  if (!target) return;
+
+  const confirmed = window.confirm(`체크 항목 "${target.name}"을(를) 삭제할까요?\n모든 학생의 체크 데이터에서도 제거됩니다.`);
+  if (!confirmed) return;
+
+  const result = removeCheckCategory(id);
+  if (!result.ok) {
+    if (checkCategoryError) checkCategoryError.textContent = result.message;
+    return;
+  }
+
+  clearCheckCategoryError();
+  renderCheckCategoryList();
+});
 
 deleteStudentList?.addEventListener("click", (event) => {
   const button = event.target.closest(".delete-student-confirm");
@@ -947,6 +1160,9 @@ csvInput.addEventListener("change", async (event) => {
     csvInput.value = "";
   }
 });
+
+const storedCategories = loadCheckCategoriesFromStorage();
+state.checkCategories = normalizeCheckCategories(storedCategories || []);
 
 const storedStudents = loadStudentsFromStorage();
 state.students = (storedStudents && storedStudents.length ? storedStudents : seedData).map(normalizeStudent);
