@@ -88,6 +88,7 @@ const state = {
 const searchInput = document.getElementById("searchInput");
 const classFilter = document.getElementById("classFilter");
 const tagFilter = document.getElementById("tagFilter");
+const checkFilter = document.getElementById("checkFilter");
 const csvInput = document.getElementById("csvInput");
 const exportCsvButton = document.getElementById("exportCsvButton");
 const openAddStudentButton = document.getElementById("openAddStudentButton");
@@ -147,93 +148,18 @@ function normalizeTags(tagsValue) {
   return [...unique.values()];
 }
 
-function parseCheckCategoryTokens(rawValue) {
-  return String(rawValue || "")
-    .split("|")
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .map((token) => {
-      const separator = token.indexOf(":");
-      if (separator <= 0) return null;
+function hasCheckCategory(student, category) {
+  const tags = normalizeTags(student.tags).map((tag) => tagKey(tag));
 
-      const id = token.slice(0, separator).trim();
-      const name = token.slice(separator + 1).trim();
-      if (!id || !name) return null;
-      return { id, name };
-    })
-    .filter(Boolean);
-}
-
-function normalizeCheckCategories(rawValue) {
-  const source = Array.isArray(rawValue)
-    ? rawValue
-        .map((item) => {
-          if (!item || typeof item !== "object") return null;
-          const id = String(item.id || "").trim();
-          const name = String(item.name || "").trim();
-          if (!id || !name) return null;
-          return { id, name };
-        })
-        .filter(Boolean)
-    : parseCheckCategoryTokens(rawValue);
-
-  const unique = new Map();
-  source.forEach((item) => {
-    if (!unique.has(item.id)) {
-      unique.set(item.id, item.name);
-    }
-  });
-
-  return [...unique.entries()].map(([id, name]) => ({ id, name }));
-}
-
-function normalizeCheckValue(rawValue) {
-  if (rawValue === 1 || rawValue === "1" || rawValue === true || String(rawValue).toLowerCase() === "true") {
-    return 1;
+  if (category === "late") {
+    return tags.some((tag) => tag.includes("지각"));
   }
 
-  if (rawValue === 0 || rawValue === "0" || rawValue === false || String(rawValue).toLowerCase() === "false") {
-    return 0;
+  if (category === "missing") {
+    return tags.some((tag) => tag.includes("미제출"));
   }
 
-  return null;
-}
-
-function parseCheckTokens(rawValue) {
-  const checks = {};
-
-  String(rawValue || "")
-    .split("|")
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .forEach((token) => {
-      const separator = token.indexOf(":");
-      if (separator <= 0) return;
-
-      const id = token.slice(0, separator).trim();
-      const rawCheckValue = token.slice(separator + 1).trim();
-      const normalizedValue = normalizeCheckValue(rawCheckValue);
-      if (!id || normalizedValue === null) return;
-      checks[id] = normalizedValue;
-    });
-
-  return checks;
-}
-
-function normalizeChecks(rawValue) {
-  if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) {
-    return parseCheckTokens(rawValue);
-  }
-
-  const normalized = {};
-  Object.entries(rawValue).forEach(([id, value]) => {
-    const key = String(id || "").trim();
-    const normalizedValue = normalizeCheckValue(value);
-    if (!key || normalizedValue === null) return;
-    normalized[key] = normalizedValue;
-  });
-
-  return normalized;
+  return true;
 }
 
 function normalizeStudent(raw) {
@@ -475,6 +401,7 @@ function refreshAndPersist() {
 function populateFilters() {
   const prevClass = classFilter.value;
   const prevTag = tagFilter.value;
+  const prevCheck = checkFilter.value;
 
   const classes = [...new Set(state.students.map((s) => s.className).filter(Boolean))].sort();
   const tagStats = new Map();
@@ -491,6 +418,10 @@ function populateFilters() {
   });
 
   const tags = [...tagStats.values()].sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  const checkStats = {
+    late: state.students.filter((student) => hasCheckCategory(student, "late")).length,
+    missing: state.students.filter((student) => hasCheckCategory(student, "missing")).length
+  };
 
   classFilter.innerHTML = `<option value="all">전체 반</option>${classes
     .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
@@ -500,19 +431,28 @@ function populateFilters() {
     .map((tag) => `<option value="${escapeHtml(tag.label)}">${escapeHtml(tag.label)} (${tag.count})</option>`)
     .join("")}`;
 
+  checkFilter.innerHTML = `
+    <option value="all">전체 체크</option>
+    <option value="late">지각 체크됨 (${checkStats.late})</option>
+    <option value="missing">미제출 체크됨 (${checkStats.missing})</option>
+  `;
+
   classFilter.value = classes.includes(prevClass) ? prevClass : "all";
   tagFilter.value = tags.map((tag) => tag.label).includes(prevTag) ? prevTag : "all";
+  checkFilter.value = ["all", "late", "missing"].includes(prevCheck) ? prevCheck : "all";
 }
 
 function applyFilters() {
   const tokens = parseSearchTokens(searchInput.value);
   const selectedClass = classFilter.value;
   const selectedTag = tagFilter.value;
+  const selectedCheck = checkFilter.value;
 
   state.filtered = state.students.filter((student) => {
     const classOk = selectedClass === "all" || student.className === selectedClass;
     const tagOk = selectedTag === "all" || (student.tags || []).some((tag) => tagKey(tag) === tagKey(selectedTag));
-    return classOk && tagOk && matchesSearch(student, tokens);
+    const checkOk = selectedCheck === "all" || hasCheckCategory(student, selectedCheck);
+    return classOk && tagOk && checkOk && matchesSearch(student, tokens);
   });
 
   renderCards(tokens);
@@ -1096,6 +1036,7 @@ function buildStudentFromForm(formData) {
 searchInput.addEventListener("input", applyFilters);
 classFilter.addEventListener("change", applyFilters);
 tagFilter.addEventListener("change", applyFilters);
+checkFilter.addEventListener("change", applyFilters);
 exportCsvButton?.addEventListener("click", exportStudentsToCsv);
 openAddStudentButton?.addEventListener("click", openAddStudentModal);
 openDeleteStudentButton?.addEventListener("click", openDeleteStudentModal);
