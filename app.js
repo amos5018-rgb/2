@@ -84,6 +84,7 @@ const state = {
 const searchInput = document.getElementById("searchInput");
 const classFilter = document.getElementById("classFilter");
 const tagFilter = document.getElementById("tagFilter");
+const checkFilter = document.getElementById("checkFilter");
 const csvInput = document.getElementById("csvInput");
 const exportCsvButton = document.getElementById("exportCsvButton");
 const openAddStudentButton = document.getElementById("openAddStudentButton");
@@ -135,6 +136,20 @@ function normalizeTags(tagsValue) {
   });
 
   return [...unique.values()];
+}
+
+function hasCheckCategory(student, category) {
+  const tags = normalizeTags(student.tags).map((tag) => tagKey(tag));
+
+  if (category === "late") {
+    return tags.some((tag) => tag.includes("지각"));
+  }
+
+  if (category === "missing") {
+    return tags.some((tag) => tag.includes("미제출"));
+  }
+
+  return true;
 }
 
 function normalizeStudent(raw) {
@@ -294,6 +309,7 @@ function refreshAndPersist() {
 function populateFilters() {
   const prevClass = classFilter.value;
   const prevTag = tagFilter.value;
+  const prevCheck = checkFilter.value;
 
   const classes = [...new Set(state.students.map((s) => s.className).filter(Boolean))].sort();
   const tagStats = new Map();
@@ -310,6 +326,10 @@ function populateFilters() {
   });
 
   const tags = [...tagStats.values()].sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  const checkStats = {
+    late: state.students.filter((student) => hasCheckCategory(student, "late")).length,
+    missing: state.students.filter((student) => hasCheckCategory(student, "missing")).length
+  };
 
   classFilter.innerHTML = `<option value="all">전체 반</option>${classes
     .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
@@ -319,19 +339,28 @@ function populateFilters() {
     .map((tag) => `<option value="${escapeHtml(tag.label)}">${escapeHtml(tag.label)} (${tag.count})</option>`)
     .join("")}`;
 
+  checkFilter.innerHTML = `
+    <option value="all">전체 체크</option>
+    <option value="late">지각 체크됨 (${checkStats.late})</option>
+    <option value="missing">미제출 체크됨 (${checkStats.missing})</option>
+  `;
+
   classFilter.value = classes.includes(prevClass) ? prevClass : "all";
   tagFilter.value = tags.map((tag) => tag.label).includes(prevTag) ? prevTag : "all";
+  checkFilter.value = ["all", "late", "missing"].includes(prevCheck) ? prevCheck : "all";
 }
 
 function applyFilters() {
   const tokens = parseSearchTokens(searchInput.value);
   const selectedClass = classFilter.value;
   const selectedTag = tagFilter.value;
+  const selectedCheck = checkFilter.value;
 
   state.filtered = state.students.filter((student) => {
     const classOk = selectedClass === "all" || student.className === selectedClass;
     const tagOk = selectedTag === "all" || (student.tags || []).some((tag) => tagKey(tag) === tagKey(selectedTag));
-    return classOk && tagOk && matchesSearch(student, tokens);
+    const checkOk = selectedCheck === "all" || hasCheckCategory(student, selectedCheck);
+    return classOk && tagOk && checkOk && matchesSearch(student, tokens);
   });
 
   renderCards(tokens);
@@ -858,6 +887,7 @@ function buildStudentFromForm(formData) {
 searchInput.addEventListener("input", applyFilters);
 classFilter.addEventListener("change", applyFilters);
 tagFilter.addEventListener("change", applyFilters);
+checkFilter.addEventListener("change", applyFilters);
 exportCsvButton?.addEventListener("click", exportStudentsToCsv);
 openAddStudentButton?.addEventListener("click", openAddStudentModal);
 openDeleteStudentButton?.addEventListener("click", openDeleteStudentModal);
