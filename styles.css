@@ -202,6 +202,37 @@ textarea:focus {
   gap: 0.5rem;
 }
 
+
+.card-checks {
+  margin-top: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  max-height: calc(2 * 28px + 0.35rem);
+  overflow: hidden;
+}
+
+.card-check-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid #d6e0ef;
+  border-radius: 999px;
+  background: #f7faff;
+  color: #2b4263;
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.card-check-item input {
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .button {
   display: inline-flex;
   align-items: center;

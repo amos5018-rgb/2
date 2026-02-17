@@ -29,6 +29,11 @@ const SEARCH_SYNONYMS = {
   건강: ["알레르기", "보건"]
 };
 
+const DEFAULT_CHECK_CATEGORIES = [
+  { id: "late", label: "지각" },
+  { id: "noSubmit", label: "미제출" }
+];
+
 const seedData = [
   {
     id: makeId(),
@@ -77,6 +82,7 @@ const seedData = [
 const state = {
   students: [...seedData],
   filtered: [...seedData],
+  checkCategories: [...DEFAULT_CHECK_CATEGORIES],
   lastDeleted: null,
   undoTimer: null
 };
@@ -153,7 +159,13 @@ function normalizeStudent(raw) {
     guardian2Phone: String(raw.guardian2Phone || "").trim(),
     address: String(raw.address || "").trim(),
     note: String(raw.note || ""),
-    tags: normalizeTags(raw.tags)
+    tags: normalizeTags(raw.tags),
+    checks: Object.fromEntries(
+      state.checkCategories.map((category) => {
+        const rawValue = raw?.checks?.[category.id];
+        return [category.id, rawValue === true];
+      })
+    )
   };
 }
 
@@ -355,6 +367,7 @@ function renderCards(tokens = parseSearchTokens(searchInput.value)) {
 
     const callButton = card.querySelector(".call-button");
     const smsButton = card.querySelector(".sms-button");
+    const checksContainer = card.querySelector(".card-checks");
     setActionLink(callButton, "tel", student.studentPhone);
     setActionLink(smsButton, "sms", student.studentPhone);
 
@@ -365,6 +378,32 @@ function renderCards(tokens = parseSearchTokens(searchInput.value)) {
         }
         event.stopPropagation();
       });
+    });
+
+    state.checkCategories.forEach((category) => {
+      const checkItem = document.createElement("label");
+      checkItem.className = "card-check-item";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = Boolean(student.checks?.[category.id]);
+      checkbox.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      checkbox.addEventListener("change", (event) => {
+        event.stopPropagation();
+        student.checks = {
+          ...(student.checks || {}),
+          [category.id]: event.target.checked
+        };
+        refreshAndPersist();
+      });
+
+      const text = document.createElement("span");
+      text.textContent = category.label;
+
+      checkItem.append(checkbox, text);
+      checksContainer?.appendChild(checkItem);
     });
 
     const openDetail = () => showDetail(student);
