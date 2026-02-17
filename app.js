@@ -23,8 +23,8 @@ const EXPORT_HEADERS = [
 ];
 
 const DEFAULT_CHECK_CATEGORIES = [
-  { id: "tardy", name: "지각", color: "#ef4444" },
-  { id: "assignment_missing", name: "과제 미제출", color: "#f59e0b" }
+  { id: "late", name: "지각" },
+  { id: "missing", name: "미제출" }
 ];
 
 const SEARCH_SYNONYMS = {
@@ -35,11 +35,6 @@ const SEARCH_SYNONYMS = {
   통학: ["등하교"],
   건강: ["알레르기", "보건"]
 };
-
-const DEFAULT_CHECK_CATEGORIES = [
-  { id: "late", label: "지각" },
-  { id: "noSubmit", label: "미제출" }
-];
 
 const seedData = [
   {
@@ -90,7 +85,6 @@ const state = {
   checkCategories: [...DEFAULT_CHECK_CATEGORIES],
   students: [...seedData],
   filtered: [...seedData],
-  checkCategories: [...DEFAULT_CHECK_CATEGORIES],
   lastDeleted: null,
   undoTimer: null
 };
@@ -158,25 +152,68 @@ function normalizeTags(tagsValue) {
   return [...unique.values()];
 }
 
+function normalizeCheckCategories(value) {
+  const source = Array.isArray(value) ? value : DEFAULT_CHECK_CATEGORIES;
+  const unique = new Map();
+
+  source.forEach((item) => {
+    if (!item) return;
+    const id = String(item.id || "").trim();
+    const name = canonicalTag(item.name || item.label || "");
+    if (!id || !name || unique.has(id)) return;
+    unique.set(id, { id, name });
+  });
+
+  if (!unique.size) {
+    DEFAULT_CHECK_CATEGORIES.forEach((item) => unique.set(item.id, { ...item }));
+  }
+
+  return [...unique.values()];
+}
+
+function normalizeChecks(checks) {
+  const normalized = {};
+
+  if (checks && typeof checks === "object" && !Array.isArray(checks)) {
+    Object.entries(checks).forEach(([id, value]) => {
+      if (!id) return;
+      normalized[id] = value === true || value === "true" || value === "1" || value === 1;
+    });
+  }
+
+  return normalized;
+}
+
+function parseChecksCell(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return {};
+
+  try {
+    return normalizeChecks(JSON.parse(raw));
+  } catch (error) {
+    const checks = {};
+    raw.split("|").forEach((token) => {
+      const [idRaw, valRaw] = token.split(":");
+      const id = String(idRaw || "").trim();
+      const val = String(valRaw || "").trim().toLowerCase();
+      if (!id) return;
+      if (["1", "true", "y", "yes"].includes(val)) checks[id] = true;
+      if (["0", "false", "n", "no"].includes(val)) checks[id] = false;
+    });
+    return checks;
+  }
+}
+
 function hasCheckCategory(student, category) {
-  const tags = normalizeTags(student.tags).map((tag) => tagKey(tag));
-
-  if (category === "late") {
-    return tags.some((tag) => tag.includes("지각"));
-  }
-
-  if (category === "missing") {
-    return tags.some((tag) => tag.includes("미제출"));
-  }
-
-  return true;
+  if (category === "all") return true;
+  return Boolean(student.checks?.[category]);
 }
 
 function normalizeStudent(raw) {
   const guardian1Name = raw.guardian1Name || raw.guardianName || "";
   const guardian1Phone = raw.guardian1Phone || raw.primaryPhone || "";
-  const baseChecks = Object.fromEntries(DEFAULT_CHECK_CATEGORIES.map((category) => [category.id, false]));
-  const normalizedChecks = raw && typeof raw.checks === "object" && !Array.isArray(raw.checks) ? raw.checks : {};
+  const baseChecks = Object.fromEntries(normalizeCheckCategories(state?.checkCategories || DEFAULT_CHECK_CATEGORIES).map((category) => [category.id, false]));
+  const normalizedChecks = normalizeChecks(raw?.checks);
 
   Object.entries(normalizedChecks).forEach(([key, value]) => {
     if (!key) return;
@@ -434,10 +471,11 @@ function populateFilters() {
   });
 
   const tags = [...tagStats.values()].sort((a, b) => a.label.localeCompare(b.label, "ko"));
-  const checkStats = {
-    late: state.students.filter((student) => hasCheckCategory(student, "late")).length,
-    missing: state.students.filter((student) => hasCheckCategory(student, "missing")).length
-  };
+  const checkOptions = state.checkCategories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    count: state.students.filter((student) => hasCheckCategory(student, category.id)).length
+  }));
 
   classFilter.innerHTML = `<option value="all">전체 반</option>${classes
     .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
@@ -447,15 +485,14 @@ function populateFilters() {
     .map((tag) => `<option value="${escapeHtml(tag.label)}">${escapeHtml(tag.label)} (${tag.count})</option>`)
     .join("")}`;
 
-  checkFilter.innerHTML = `
-    <option value="all">전체 체크</option>
-    <option value="late">지각 체크됨 (${checkStats.late})</option>
-    <option value="missing">미제출 체크됨 (${checkStats.missing})</option>
-  `;
+  checkFilter.innerHTML = `<option value="all">전체 체크</option>${checkOptions
+    .map((category) => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)} 체크됨 (${category.count})</option>`)
+    .join("")}`;
 
   classFilter.value = classes.includes(prevClass) ? prevClass : "all";
   tagFilter.value = tags.map((tag) => tag.label).includes(prevTag) ? prevTag : "all";
-  checkFilter.value = ["all", "late", "missing"].includes(prevCheck) ? prevCheck : "all";
+  const allowedChecks = ["all", ...checkOptions.map((category) => category.id)];
+  checkFilter.value = allowedChecks.includes(prevCheck) ? prevCheck : "all";
 }
 
 function applyFilters() {
@@ -525,7 +562,7 @@ function renderCards(tokens = parseSearchTokens(searchInput.value)) {
       });
 
       const text = document.createElement("span");
-      text.textContent = category.label;
+      text.textContent = category.name;
 
       checkItem.append(checkbox, text);
       checksContainer?.appendChild(checkItem);
@@ -960,15 +997,7 @@ function parseCsv(text) {
         address: row.address,
         note: row.note,
         tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : [],
-        checks: (() => {
-          if (!row.checks) return {};
-          try {
-            const parsedChecks = JSON.parse(row.checks);
-            return parsedChecks && typeof parsedChecks === "object" && !Array.isArray(parsedChecks) ? parsedChecks : {};
-          } catch (error) {
-            return {};
-          }
-        })()
+        checks: parseChecksCell(row.checks)
       });
     });
 }
@@ -986,10 +1015,6 @@ function exportStudentsToCsv() {
   const lines = [EXPORT_HEADERS.join(",")];
 
   state.students.forEach((student) => {
-    const categoryPairs = normalizeCheckCategories(student.checkCategories).map((item) => `${item.id}:${item.name}`);
-    const checksById = normalizeChecks(student.checks);
-    const checkPairs = Object.entries(checksById).map(([id, value]) => `${id}:${value}`);
-
     const row = {
       name: student.name,
       className: student.className,
@@ -1106,6 +1131,8 @@ addCheckCategoryButton?.addEventListener("click", () => {
     newCheckCategoryInput.focus();
   }
   renderCheckCategoryList();
+  populateFilters();
+  applyFilters();
 });
 
 newCheckCategoryInput?.addEventListener("keydown", (event) => {
@@ -1133,6 +1160,8 @@ checkCategoryList?.addEventListener("click", (event) => {
 
     clearCheckCategoryError();
     renderCheckCategoryList();
+    populateFilters();
+    applyFilters();
     return;
   }
 
