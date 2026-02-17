@@ -18,7 +18,9 @@ const EXPORT_HEADERS = [
   "guardian2Phone",
   "address",
   "note",
-  "tags"
+  "tags",
+  "checkCategories",
+  "checks"
 ];
 
 const SEARCH_SYNONYMS = {
@@ -145,31 +147,93 @@ function normalizeTags(tagsValue) {
   return [...unique.values()];
 }
 
-function normalizeChecks(rawChecks) {
-  const checks = rawChecks && typeof rawChecks === "object" ? rawChecks : {};
-  const normalized = {};
+function parseCheckCategoryTokens(rawValue) {
+  return String(rawValue || "")
+    .split("|")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map((token) => {
+      const separator = token.indexOf(":");
+      if (separator <= 0) return null;
 
-  Object.entries(checks).forEach(([key, value]) => {
-    if (!key) return;
-    normalized[String(key)] = Boolean(value);
+      const id = token.slice(0, separator).trim();
+      const name = token.slice(separator + 1).trim();
+      if (!id || !name) return null;
+      return { id, name };
+    })
+    .filter(Boolean);
+}
+
+function normalizeCheckCategories(rawValue) {
+  const source = Array.isArray(rawValue)
+    ? rawValue
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const id = String(item.id || "").trim();
+          const name = String(item.name || "").trim();
+          if (!id || !name) return null;
+          return { id, name };
+        })
+        .filter(Boolean)
+    : parseCheckCategoryTokens(rawValue);
+
+  const unique = new Map();
+  source.forEach((item) => {
+    if (!unique.has(item.id)) {
+      unique.set(item.id, item.name);
+    }
+  });
+
+  return [...unique.entries()].map(([id, name]) => ({ id, name }));
+}
+
+function normalizeCheckValue(rawValue) {
+  if (rawValue === 1 || rawValue === "1" || rawValue === true || String(rawValue).toLowerCase() === "true") {
+    return 1;
+  }
+
+  if (rawValue === 0 || rawValue === "0" || rawValue === false || String(rawValue).toLowerCase() === "false") {
+    return 0;
+  }
+
+  return null;
+}
+
+function parseCheckTokens(rawValue) {
+  const checks = {};
+
+  String(rawValue || "")
+    .split("|")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .forEach((token) => {
+      const separator = token.indexOf(":");
+      if (separator <= 0) return;
+
+      const id = token.slice(0, separator).trim();
+      const rawCheckValue = token.slice(separator + 1).trim();
+      const normalizedValue = normalizeCheckValue(rawCheckValue);
+      if (!id || normalizedValue === null) return;
+      checks[id] = normalizedValue;
+    });
+
+  return checks;
+}
+
+function normalizeChecks(rawValue) {
+  if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) {
+    return parseCheckTokens(rawValue);
+  }
+
+  const normalized = {};
+  Object.entries(rawValue).forEach(([id, value]) => {
+    const key = String(id || "").trim();
+    const normalizedValue = normalizeCheckValue(value);
+    if (!key || normalizedValue === null) return;
+    normalized[key] = normalizedValue;
   });
 
   return normalized;
-}
-
-function normalizeCheckCategories(rawCategories) {
-  if (!Array.isArray(rawCategories)) return [];
-
-  const unique = new Map();
-  rawCategories.forEach((rawCategory) => {
-    const id = String(rawCategory?.id || makeId());
-    const name = canonicalTag(rawCategory?.name);
-    const key = tagKey(name);
-    if (!name || unique.has(key)) return;
-    unique.set(key, { id, name });
-  });
-
-  return [...unique.values()];
 }
 
 function normalizeStudent(raw) {
@@ -189,6 +253,7 @@ function normalizeStudent(raw) {
     address: String(raw.address || "").trim(),
     note: String(raw.note || ""),
     tags: normalizeTags(raw.tags),
+    checkCategories: normalizeCheckCategories(raw.checkCategories),
     checks: normalizeChecks(raw.checks)
   };
 }
@@ -911,7 +976,9 @@ function parseCsv(text) {
         guardian2Phone: row.guardian2Phone,
         address: row.address,
         note: row.note,
-        tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : []
+        tags: row.tags ? row.tags.split("|").map((x) => x.trim()).filter(Boolean) : [],
+        checkCategories: row.checkCategories,
+        checks: row.checks
       });
     });
 }
@@ -929,6 +996,10 @@ function exportStudentsToCsv() {
   const lines = [EXPORT_HEADERS.join(",")];
 
   state.students.forEach((student) => {
+    const categoryPairs = normalizeCheckCategories(student.checkCategories).map((item) => `${item.id}:${item.name}`);
+    const checksById = normalizeChecks(student.checks);
+    const checkPairs = Object.entries(checksById).map(([id, value]) => `${id}:${value}`);
+
     const row = {
       name: student.name,
       className: student.className,
@@ -940,7 +1011,9 @@ function exportStudentsToCsv() {
       guardian2Phone: student.guardian2Phone,
       address: student.address,
       note: student.note,
-      tags: (student.tags || []).join("|")
+      tags: (student.tags || []).join("|"),
+      checkCategories: categoryPairs.join("|"),
+      checks: checkPairs.join("|")
     };
 
     lines.push(EXPORT_HEADERS.map((header) => toCsvCell(row[header])).join(","));
