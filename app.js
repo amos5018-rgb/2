@@ -471,10 +471,11 @@ function populateFilters() {
   });
 
   const tags = [...tagStats.values()].sort((a, b) => a.label.localeCompare(b.label, "ko"));
-  const checkStats = {
-    late: state.students.filter((student) => hasCheckCategory(student, "late")).length,
-    missing: state.students.filter((student) => hasCheckCategory(student, "missing")).length
-  };
+  const checkOptions = state.checkCategories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    count: state.students.filter((student) => hasCheckCategory(student, category.id)).length
+  }));
 
   classFilter.innerHTML = `<option value="all">전체 반</option>${classes
     .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
@@ -484,15 +485,14 @@ function populateFilters() {
     .map((tag) => `<option value="${escapeHtml(tag.label)}">${escapeHtml(tag.label)} (${tag.count})</option>`)
     .join("")}`;
 
-  checkFilter.innerHTML = `
-    <option value="all">전체 체크</option>
-    <option value="late">지각 체크됨 (${checkStats.late})</option>
-    <option value="missing">미제출 체크됨 (${checkStats.missing})</option>
-  `;
+  checkFilter.innerHTML = `<option value="all">전체 체크</option>${checkOptions
+    .map((category) => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)} 체크됨 (${category.count})</option>`)
+    .join("")}`;
 
   classFilter.value = classes.includes(prevClass) ? prevClass : "all";
   tagFilter.value = tags.map((tag) => tag.label).includes(prevTag) ? prevTag : "all";
-  checkFilter.value = ["all", "late", "missing"].includes(prevCheck) ? prevCheck : "all";
+  const allowedChecks = ["all", ...checkOptions.map((category) => category.id)];
+  checkFilter.value = allowedChecks.includes(prevCheck) ? prevCheck : "all";
 }
 
 function applyFilters() {
@@ -1131,6 +1131,8 @@ addCheckCategoryButton?.addEventListener("click", () => {
     newCheckCategoryInput.focus();
   }
   renderCheckCategoryList();
+  populateFilters();
+  applyFilters();
 });
 
 newCheckCategoryInput?.addEventListener("keydown", (event) => {
@@ -1158,6 +1160,8 @@ checkCategoryList?.addEventListener("click", (event) => {
 
     clearCheckCategoryError();
     renderCheckCategoryList();
+    populateFilters();
+    applyFilters();
     return;
   }
 
